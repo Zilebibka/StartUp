@@ -100,6 +100,8 @@ graph TD
 3.  **IIDF (ФРИИ):** Исследование «Стартап-барометр» (Метрики выживаемости проектов ранних стадий).
 4.  **Habr Career / Хабр Карьера:** Аналитика зарплат IT-специалистов (Обоснование роста себестоимости разработки).
 5.  **Data Insight / TAdviser:** Обзоры рынка электронной коммерции и заказной разработки.
+6.  **TAdviser — рынок IT-услуг и цифровой разработки в России  https://tadviser.com/index.php/Article:IT_Services_(Russian_Market)
+7.  **Mordor Intelligence — Russia ICT Market  https://www.mordorintelligence.com/industry-reports/russia-ict-market
 
 
 

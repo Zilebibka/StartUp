@@ -43,6 +43,7 @@ func NewRouter(db *sql.DB) http.Handler {
 		r.Group(func(r chi.Router) {
 			r.Use(middlewares.AuthMiddleware)
 			r.Post("/listings", marketHandler.CreateListing)
+			r.Put("/listings/{listingID}", marketHandler.UpdateListing)
 			r.Get("/cart", marketHandler.GetCart)
 			r.Post("/cart/items", marketHandler.SetCartItem)
 			r.Delete("/cart/items/{listingID}", marketHandler.RemoveCartItem)

@@ -203,6 +203,108 @@ func (h Handler) CreateListing(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(result)
 }
 
+func (h Handler) UpdateListing(w http.ResponseWriter, r *http.Request) {
+	userID, _ := r.Context().Value(middlewares.ContextUserIDKey).(int64)
+	if userID == 0 {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	listingIDStr := chi.URLParam(r, "listingID")
+	listingID, err := strconv.ParseInt(listingIDStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid listing ID")
+		return
+	}
+
+	var req createListingRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid payload")
+		return
+	}
+
+	req.Title = strings.TrimSpace(req.Title)
+	req.Description = strings.TrimSpace(req.Description)
+	req.ProjectURL = strings.TrimSpace(req.ProjectURL)
+	req.CodeFileName = strings.TrimSpace(req.CodeFileName)
+
+	if req.Title == "" || req.Description == "" || req.Price <= 0 {
+		writeError(w, http.StatusBadRequest, "title, description and price are required")
+		return
+	}
+
+	if req.DeliveryMode != "auto" {
+		req.DeliveryMode = "manual"
+	}
+
+	if len(req.ImageDataURL) > 5 {
+		req.ImageDataURL = req.ImageDataURL[:5]
+	}
+
+	imagesJSON, _ := json.Marshal(req.ImageDataURL)
+
+	const updateQuery = `
+		UPDATE listings SET 
+			title = $1, description = $2, price = $3, delivery_mode = $4,
+			project_url = NULLIF($5, ''), code_file_name = NULLIF($6, ''), image_data_urls = $7::jsonb
+		WHERE id = $8 AND seller_user_id = $9
+		RETURNING id, created_at
+	`
+
+	var createdAt time.Time
+	if err := h.DB.QueryRow(
+		updateQuery,
+		req.Title,
+		req.Description,
+		req.Price,
+		req.DeliveryMode,
+		req.ProjectURL,
+		req.CodeFileName,
+		string(imagesJSON),
+		listingID,
+		userID,
+	).Scan(&listingID, &createdAt); err != nil {
+		if err == sql.ErrNoRows {
+			writeError(w, http.StatusForbidden, "not allowed or listing not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to update listing")
+		return
+	}
+
+	var ownerLogin string
+	if err := h.DB.QueryRow("SELECT login FROM users WHERE id = $1", userID).Scan(&ownerLogin); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load listing owner")
+		return
+	}
+
+	var projectUrlPtr *string
+	if req.ProjectURL != "" {
+		projectUrlPtr = &req.ProjectURL
+	}
+	var codeFileNamePtr *string
+	if req.CodeFileName != "" {
+		codeFileNamePtr = &req.CodeFileName
+	}
+
+	result := listingDTO{
+		ID:           listingID,
+		Title:        req.Title,
+		Description:  req.Description,
+		Price:        req.Price,
+		OwnerLogin:   ownerLogin,
+		DeliveryMode: req.DeliveryMode,
+		ProjectURL:   projectUrlPtr,
+		CodeFileName: codeFileNamePtr,
+		ImageDataURL: req.ImageDataURL,
+		CreatedAt:    createdAt.Format(time.RFC3339),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(result)
+}
+
 func (h Handler) GetCart(w http.ResponseWriter, r *http.Request) {
 	userID, _ := r.Context().Value(middlewares.ContextUserIDKey).(int64)
 	if userID == 0 {

@@ -3,56 +3,27 @@ import type { ChangeEvent, FormEvent } from 'react'
 import {
   ArrowDownToLine,
   Bell,
-  Box,
-  FileCode,
-  ImagePlus,
-  Link2,
   LogOut,
   Plus,
   Search,
-  Send,
   ShoppingCart,
-  Trash2,
-  Upload,
-  UserCircle,
   Wallet,
   X,
+  CheckCircle,
+  AlertCircle,
+  Info
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 
-type Page = 'home' | 'topup' | 'sell' | 'help' | 'about' | 'login' | 'register' | 'profile' | 'cart' | 'listing'
-type DeliveryMode = 'auto' | 'manual'
-
-type User = {
-  id: number
-  login: string
-  email?: string
-  displayName?: string
-  createdAt?: string
-}
-
-type AuthResponse = {
-  accessToken: string
-  user: User
-}
-
-type Listing = {
-  id: number
-  title: string
-  description: string
-  price: number
-  ownerLogin: string
-  deliveryMode: DeliveryMode
-  projectUrl?: string
-  codeFileName?: string
-  imageDataUrls: string[]
-  createdAt: string
-}
-
-type CartItem = {
-  listingId: number
-  qty: number
-}
+import { HomePage } from './pages/HomePage'
+import { ListingPage } from './pages/ListingPage'
+import { CartPage } from './pages/CartPage'
+import { TopupPage } from './pages/TopupPage'
+import { WithdrawPage } from './pages/WithdrawPage'
+import { SellPage } from './pages/SellPage'
+import { HelpPage, AboutPage, ContactModal } from './pages/InfoPages'
+import { RegisterPage, LoginPage, ProfilePage } from './pages/AuthPages'
+import type { Page, User, AuthResponse, Listing, CartItem, DeliveryMode, AppNotification } from './types'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api'
 const DEFAULT_LISTINGS: Listing[] = [
@@ -126,11 +97,46 @@ function App() {
   const [accessToken, setAccessToken] = useState<string | null>(localStorage.getItem('accessToken'))
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  
+  const [notifications, setNotifications] = useState<AppNotification[]>([])
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
+
+  const addNotification = (message: string, type: 'success' | 'error' | 'info') => {
+    const newNotif: AppNotification = {
+      id: Date.now(),
+      message,
+      type,
+      createdAt: new Date().toISOString(),
+      read: false
+    }
+    setNotifications(prev => [newNotif, ...prev])
+    
+    // Play sound on new notification
+    try {
+      const audio = new Audio('data:audio/mp3;base64,//OExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//OExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq')
+      audio.volume = 0.2
+      // A quick silent base64 for now, usually you'd want a real sound file url or a proper bell base64 here
+      // Replace with actual short bell sound data if needed
+      audio.play().catch(() => {})
+    } catch (e) {}
+  }
+
+  const markNotificationAsRead = (id: number) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+  }
+
+  const deleteNotification = (id: number) => {
+    setNotifications(prev => prev.filter(n => n.id !== id))
+  }
 
   const [activeFaq, setActiveFaq] = useState<number | null>(null)
   const [topupAmount, setTopupAmount] = useState<number | ''>(1000)
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'sbp'>('card')
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'sbp' | 'crypto'>('card')
+  const [withdrawAmount, setWithdrawAmount] = useState<number | ''>(1000)
+  const [withdrawMethod, setWithdrawMethod] = useState<'card' | 'sbp' | 'crypto'>('card')
+  const [withdrawDestination, setWithdrawDestination] = useState('')
   const [balance, setBalance] = useState(0)
 
   const [listings, setListings] = useState<Listing[]>([])
@@ -143,6 +149,7 @@ function App() {
     projectUrl: '',
     deliveryMode: 'auto' as DeliveryMode,
   })
+  const [editingListingId, setEditingListingId] = useState<number | null>(null)
   const [sellImages, setSellImages] = useState<File[]>([])
   const [sellImagePreviews, setSellImagePreviews] = useState<string[]>([])
   const [codeFile, setCodeFile] = useState<File | null>(null)
@@ -332,6 +339,7 @@ function App() {
   const handleRegister = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
+    setSuccessMessage('')
 
     try {
       const res = await fetch(`${API_BASE}/auth/register`, {
@@ -357,6 +365,7 @@ function App() {
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
+    setSuccessMessage('')
 
     try {
       const res = await fetch(`${API_BASE}/auth/login`, {
@@ -379,6 +388,19 @@ function App() {
     }
   }
 
+  const handleEditListing = (listing: Listing) => {
+    setEditingListingId(listing.id)
+    setSellForm({
+      title: listing.title,
+      description: listing.description,
+      price: listing.price.toString(),
+      projectUrl: listing.projectUrl || '',
+      deliveryMode: listing.deliveryMode,
+    })
+    setSellImagePreviews(listing.imageDataUrls || [])
+    setCurrentPage('sell')
+  }
+
   const handleLogout = async () => {
     await fetch(`${API_BASE}/auth/logout`, {
       method: 'POST',
@@ -392,6 +414,7 @@ function App() {
     setCurrentPage('home')
     setSelectedListingId(null)
     setError('')
+    setSuccessMessage('')
   }
 
   const requireAuth = () => {
@@ -404,6 +427,7 @@ function App() {
   const handleSellOpen = () => {
     if (!requireAuth()) return
     setError('')
+    setSuccessMessage('')
     setCurrentPage('sell')
   }
 
@@ -483,12 +507,46 @@ function App() {
 
     const amount = Number(topupAmount)
     if (!Number.isFinite(amount) || amount < 100) {
-      setError('Введите сумму пополнения не менее 100 ₽.')
+      addNotification('Введите сумму пополнения не менее 100 ₽.', 'error')
       return
     }
 
     setBalance((prev) => prev + amount)
-    setError('Баланс успешно пополнен.')
+    addNotification('Баланс успешно пополнен на ' + amount + ' ₽', 'success')
+  }
+
+  const handleWithdraw = () => {
+    if (!requireAuth()) return
+
+    const amount = Number(withdrawAmount)
+    if (!Number.isFinite(amount) || amount < 1000) {
+      addNotification('Минимальная сумма вывода — 1000 ₽.', 'error')
+      return
+    }
+
+    if (amount > balance) {
+      addNotification('Недостаточно средств на балансе.', 'error')
+      return
+    }
+
+    const dest = withdrawDestination.replace(/\s+/g, '')
+    if (withdrawMethod === 'card' && !/^\d{16,19}$/.test(dest)) {
+      addNotification('Для вывода на карту введите корректный номер карты (16-19 цифр).', 'error')
+      return
+    }
+    if (withdrawMethod === 'sbp' && !/^(\+7|8|7)\d{10}$/.test(dest.replace(/[\(\)-]/g, ''))) {
+      addNotification('Введите корректный номер телефона (начиная с +7 или 8).', 'error')
+      return
+    }
+    if (withdrawMethod === 'crypto' && !/^T[A-Za-z1-9]{33}$/.test(dest)) {
+      addNotification('Введите корректный адрес USDT (сеть TRC20, начинается с T).', 'error')
+      return
+    }
+
+    setBalance((prev) => prev - amount)
+    setWithdrawDestination('')
+    addNotification('Заявка на вывод ' + amount + ' ₽ успешно создана.', 'success')
+    setCurrentPage('home')
   }
 
   const handleCreateListing = async (e: FormEvent) => {
@@ -497,12 +555,12 @@ function App() {
 
     const price = Number(sellForm.price)
     if (!sellForm.title.trim() || !sellForm.description.trim() || !Number.isFinite(price) || price <= 0) {
-      setError('Заполните название, описание и корректную цену проекта.')
+      addNotification('Заполните название, описание и корректную цену проекта.', 'error')
       return
     }
 
-    if (!codeFile && !sellForm.projectUrl.trim()) {
-      setError('Нужно приложить файл проекта или ссылку на репозиторий.')
+    if (!editingListingId && !codeFile && !sellForm.projectUrl.trim()) {
+      addNotification('Нужно приложить файл проекта, ссылку на репозиторий или редактировать существующий товар.', 'error')
       return
     }
 
@@ -519,8 +577,11 @@ function App() {
         imageDataUrls: images,
       }
 
-      const res = await fetchWithAuth('/listings', {
-        method: 'POST',
+      const method = editingListingId ? 'PUT' : 'POST'
+      const endpoint = editingListingId ? `/listings/${editingListingId}` : '/listings'
+
+      const res = await fetchWithAuth(endpoint, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
@@ -534,11 +595,21 @@ function App() {
       }
 
       const created = (await res.json()) as Listing
-      setListings((prev) => [created, ...prev])
+
+      if (editingListingId) {
+        setListings((prev) => prev.map(listing => listing.id === editingListingId ? { ...listing, ...created, id: editingListingId } : listing))
+        addNotification('Анкета успешно обновлена.', 'success')
+      } else {
+        setListings((prev) => [created, ...prev])
+        addNotification('Анкета успешно создана.', 'success')
+      }
+
       setSellForm({ title: '', description: '', price: '', projectUrl: '', deliveryMode: 'auto' })
+      setEditingListingId(null)
       setSellImages([])
       setCodeFile(null)
-      setError('Проект опубликован.')
+      setError('')
+      setSuccessMessage('Проект опубликован.')
       setCurrentPage('home')
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Не удалось опубликовать проект.'
@@ -591,7 +662,7 @@ function App() {
                     <button onClick={() => { setCurrentPage('topup'); setIsWalletOpen(false) }} className="flex items-center gap-1 bg-black text-white text-xs px-2.5 py-1.5 rounded-lg">
                       <Plus className="w-3 h-3" /> Пополнить
                     </button>
-                    <button className="flex items-center gap-1 bg-white text-black border border-gray-300 text-xs px-2.5 py-1.5 rounded-lg">
+                    <button onClick={() => { setCurrentPage('withdraw'); setIsWalletOpen(false) }} className="flex items-center gap-1 bg-white text-black border border-gray-300 text-xs px-2.5 py-1.5 rounded-lg">
                       <ArrowDownToLine className="w-3 h-3" /> Вывести
                     </button>
                   </motion.div>
@@ -606,7 +677,78 @@ function App() {
               <ShoppingCart className="w-5 h-5" />
               {cartCount > 0 && <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-black text-white text-[10px] leading-4 text-center">{cartCount}</span>}
             </button>
-            <Bell className="w-5 h-5 hidden sm:block" />
+            <div className="relative hidden sm:block">
+              <button 
+                onClick={() => setIsNotificationsOpen(p => !p)} 
+                className="relative rounded-full p-1 hover:bg-gray-100 transition-colors"
+                title="Уведомления"
+              >
+                <Bell className="w-5 h-5" />
+                {notifications.filter(n => !n.read).length > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center select-none shadow-sm animate-pulse">
+                    {notifications.filter(n => !n.read).length}
+                  </span>
+                )}
+              </button>
+              
+              <AnimatePresence>
+                {isNotificationsOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute top-10 right-0 w-80 bg-white border border-gray-100 rounded-xl shadow-xl shadow-black/5 z-50 overflow-hidden"
+                  >
+                    <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                      <h3 className="font-semibold text-gray-800">Уведомления</h3>
+                      <button 
+                        onClick={() => {
+                          setNotifications(prev => prev.map(n => ({...n, read: true})))
+                        }} 
+                        className="text-xs text-blue-600 hover:text-blue-800 transition-colors"
+                      >
+                        Прочитать все
+                      </button>
+                    </div>
+                    <div className="max-h-[350px] overflow-y-auto w-full flex flex-col">
+                      {notifications.length === 0 ? (
+                        <div className="p-8 text-center text-gray-400 text-sm">Нет новых уведомлений</div>
+                      ) : (
+                        notifications.map(notif => (
+                          <div 
+                            key={notif.id} 
+                            onMouseEnter={() => { if (!notif.read) markNotificationAsRead(notif.id) }}
+                            className={`p-3 border-b border-gray-50 last:border-b-0 flex gap-3 relative transition-colors duration-300 group ${notif.read ? 'bg-white hover:bg-gray-50' : 'bg-blue-50/40 hover:bg-blue-50/60'}`}
+                          >
+                            <div className="shrink-0 pt-0.5">
+                              {notif.type === 'success' && <CheckCircle className="w-4 h-4 text-emerald-500" />}
+                              {notif.type === 'error' && <AlertCircle className="w-4 h-4 text-red-500" />}
+                              {notif.type === 'info' && <Info className="w-4 h-4 text-blue-500" />}
+                            </div>
+                            <div className="flex-1 pr-6">
+                              <p className={`text-sm leading-snug break-words whitespace-pre-wrap ${notif.read ? 'text-gray-600' : 'text-gray-900 font-medium'}`}>{notif.message}</p>
+                              <span className="text-[10px] text-gray-400 mt-1 block">
+                                {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteNotification(notif.id);
+                              }}
+                              className="absolute top-3 right-3 p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
             {currentUser ? (
               <div className="flex items-center gap-2">
@@ -626,320 +768,110 @@ function App() {
       <main className="max-w-7xl mx-auto px-4 pt-24 pb-12">
         <AnimatePresence mode="wait">
           {currentPage === 'home' && (
-            <motion.section key="home" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-              <div className="lg:col-span-3 space-y-12">
-                <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row gap-8 items-start">
-                  <div className="flex-1 space-y-4 max-w-sm">
-                    <h1 className="text-2xl font-bold">Информация о приложении</h1>
-                    <p className="text-base text-gray-600 leading-relaxed font-medium">Маркетплейс для покупки и продажи незавершенных IT-проектов.</p>
-                  </div>
-                  <div className="flex-[2] w-full h-80 rounded-2xl bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
-                    <Box className="w-24 h-24 text-gray-400" />
-                  </div>
-                </motion.section>
-
-                <section className="space-y-6">
-                  <h2 className="text-2xl font-bold">Каталог</h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredListings.map((item, i) => (
-                      <motion.div key={item.id} initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.04 }} className="space-y-3 rounded-xl border bg-white p-3">
-                        <button onClick={() => openListingPage(item.id)} className="w-full text-left">
-                          <div className="bg-gray-200 aspect-[4/3] rounded-xl flex items-center justify-center overflow-hidden">
-                            {item.imageDataUrls[0] ? <img src={item.imageDataUrls[0]} alt={item.title} className="h-full w-full object-cover" /> : <Box className="w-12 h-12 text-gray-400" />}
-                          </div>
-                        </button>
-                        <div className="space-y-1">
-                          <button onClick={() => openListingPage(item.id)} className="text-left font-semibold text-gray-900 hover:underline">{item.title}</button>
-                          <p className="line-clamp-2 text-sm text-gray-500">{item.description}</p>
-                          <p className="text-sm text-gray-500">Продавец: {item.ownerLogin}</p>
-                          <p className="font-bold text-lg">{item.price.toLocaleString('ru-RU')} ₽</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => openListingPage(item.id)} className="flex-1 rounded-lg border px-3 py-2 text-sm">Подробнее</button>
-                          <button onClick={() => handleAddToCart(item.id)} className="flex-1 rounded-lg bg-black px-3 py-2 text-sm text-white">В корзину</button>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                  {filteredListings.length === 0 && <p className="text-sm text-gray-500">По вашему запросу ничего не найдено.</p>}
-                </section>
-              </div>
-              <aside className="space-y-6">
-                <h2 className="text-xl font-bold">Рекомендации</h2>
-                <div className="space-y-4">
-                  {listings.slice(0, 3).map((item) => (
-                    <button key={item.id} onClick={() => openListingPage(item.id)} className="w-full rounded-xl border p-3 text-left hover:bg-gray-50 transition-colors">
-                      <p className="font-semibold">{item.title}</p>
-                      <p className="text-sm text-gray-500">{item.price.toLocaleString('ru-RU')} ₽</p>
-                    </button>
-                  ))}
-                </div>
-              </aside>
-            </motion.section>
+            <HomePage 
+              searchQuery={searchQuery}
+              filteredListings={filteredListings}
+              listings={listings}
+              openListingPage={openListingPage}
+              handleAddToCart={handleAddToCart}
+            />
           )}
 
           {currentPage === 'listing' && selectedListing && (
-            <motion.section key="listing" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div className="space-y-4">
-                <div className="aspect-[4/3] rounded-2xl border bg-gray-100 overflow-hidden flex items-center justify-center">
-                  {selectedListing.imageDataUrls[0] ? <img src={selectedListing.imageDataUrls[0]} alt={selectedListing.title} className="h-full w-full object-cover" /> : <Box className="h-16 w-16 text-gray-400" />}
-                </div>
-                {selectedListing.imageDataUrls.length > 1 && (
-                  <div className="grid grid-cols-4 gap-3">
-                    {selectedListing.imageDataUrls.slice(1).map((url, index) => (
-                      <img key={`${selectedListing.id}-${index}`} src={url} alt="Project screenshot" className="h-20 w-full rounded-lg border object-cover" />
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="space-y-4 rounded-2xl border p-6">
-                <h1 className="text-3xl font-bold">{selectedListing.title}</h1>
-                <p className="text-sm text-gray-500">Продавец: {selectedListing.ownerLogin}</p>
-                <p className="text-gray-700 whitespace-pre-wrap">{selectedListing.description}</p>
-                <p className="text-2xl font-bold">{selectedListing.price.toLocaleString('ru-RU')} ₽</p>
-                <p className="text-sm text-gray-500">Выдача: {selectedListing.deliveryMode === 'auto' ? 'Автовыдача' : 'Ручная передача'}</p>
-                {selectedListing.codeFileName && <p className="text-sm">Файл проекта: <b>{selectedListing.codeFileName}</b></p>}
-                {selectedListing.projectUrl && (
-                  <a href={selectedListing.projectUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm text-blue-600 underline">
-                    <Link2 className="h-4 w-4" /> Открыть ссылку на проект
-                  </a>
-                )}
-                <div className="flex items-center gap-3 pt-3">
-                  <button onClick={() => handleAddToCart(selectedListing.id)} className="rounded-xl bg-black px-4 py-2 text-white">Добавить в корзину</button>
-                  <button onClick={navigateToHome} className="rounded-xl border px-4 py-2">Назад в каталог</button>
-                </div>
-              </div>
-            </motion.section>
+            <ListingPage 
+              selectedListing={selectedListing}
+              handleAddToCart={handleAddToCart}
+              navigateToHome={navigateToHome}
+            />
           )}
 
           {currentPage === 'cart' && (
-            <motion.section key="cart" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="max-w-4xl mx-auto space-y-6">
-              <h1 className="text-2xl font-bold">Корзина</h1>
-              {!currentUser && <p className="rounded-xl bg-yellow-50 px-4 py-3 text-sm">Корзина сохраняется только для авторизованных пользователей.</p>}
-              {cart.length === 0 ? (
-                <p className="rounded-xl border px-4 py-6 text-center text-gray-500">Корзина пока пуста.</p>
-              ) : (
-                <div className="space-y-3">
-                  {cart.map((item) => {
-                    const listing = listings.find((entry) => entry.id === item.listingId)
-                    if (!listing) return null
-                    return (
-                      <div key={item.listingId} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
-                        <div>
-                          <p className="font-semibold">{listing.title}</p>
-                          <p className="text-sm text-gray-500">{listing.price.toLocaleString('ru-RU')} ₽ за единицу</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => handleQtyChange(item.listingId, -1)} className="h-8 w-8 rounded-lg border">-</button>
-                          <span className="w-8 text-center">{item.qty}</span>
-                          <button onClick={() => handleQtyChange(item.listingId, 1)} className="h-8 w-8 rounded-lg border">+</button>
-                        </div>
-                        <p className="font-semibold">{(listing.price * item.qty).toLocaleString('ru-RU')} ₽</p>
-                        <button onClick={() => handleRemoveCartItem(item.listingId)} className="rounded-lg border p-2 text-gray-500 hover:text-red-600">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    )
-                  })}
-                  <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3 font-semibold">
-                    <span>Итого</span>
-                    <span>{cartTotal.toLocaleString('ru-RU')} ₽</span>
-                  </div>
-                  <button className="w-full rounded-xl bg-black py-3 text-white">Оформить и сохранить покупку</button>
-                </div>
-              )}
-            </motion.section>
+            <CartPage 
+              currentUser={currentUser}
+              cart={cart}
+              listings={listings}
+              cartTotal={cartTotal}
+              handleQtyChange={handleQtyChange}
+              handleRemoveCartItem={handleRemoveCartItem}
+            />
           )}
 
           {currentPage === 'topup' && (
-            <motion.section key="topup" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="max-w-3xl mx-auto bg-white border rounded-2xl shadow-sm p-8 space-y-6">
-              <h1 className="text-2xl font-bold">Пополнение баланса</h1>
-              <p className="text-sm text-gray-500">Текущий баланс: <b>{balance.toLocaleString('ru-RU')} ₽</b></p>
-              <div className="space-y-4">
-                <label className="text-sm font-medium">Сумма пополнения (₽)</label>
-                <div className="flex flex-wrap gap-2">
-                  {[100, 500, 1000, 2000, 5000].map((amount) => (
-                    <button key={amount} onClick={() => setTopupAmount(amount)} className={`px-4 py-2 border rounded-xl ${topupAmount === amount ? 'bg-black text-white' : ''}`}>{amount} ₽</button>
-                  ))}
-                </div>
-                <input type="number" value={topupAmount} onChange={(e) => setTopupAmount(e.target.value ? Number(e.target.value) : '')} className="w-full px-4 py-3 bg-gray-50 border rounded-xl" min="100" />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button onClick={() => setPaymentMethod('card')} className={`border rounded-xl p-4 ${paymentMethod === 'card' ? 'border-black' : ''}`}>Банковская карта</button>
-                <button onClick={() => setPaymentMethod('sbp')} className={`border rounded-xl p-4 ${paymentMethod === 'sbp' ? 'border-black' : ''}`}>СБП / QR</button>
-              </div>
-              <button onClick={handleTopup} className="w-full rounded-xl bg-black py-3 text-white">Перейти к оплате</button>
-            </motion.section>
+            <TopupPage
+              balance={balance}
+              topupAmount={topupAmount}
+              setTopupAmount={setTopupAmount}
+              paymentMethod={paymentMethod}
+              setPaymentMethod={setPaymentMethod}
+              handleTopup={handleTopup}
+            />
+          )}
+
+          {currentPage === 'withdraw' && (
+            <WithdrawPage
+              balance={balance}
+              withdrawAmount={withdrawAmount}
+              setWithdrawAmount={setWithdrawAmount}
+              withdrawMethod={withdrawMethod}
+              setWithdrawMethod={setWithdrawMethod}
+              withdrawDestination={withdrawDestination}
+              setWithdrawDestination={setWithdrawDestination}
+              handleWithdraw={handleWithdraw}
+            />
           )}
 
           {currentPage === 'sell' && (
-            <motion.section key="sell" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="max-w-2xl mx-auto bg-white border rounded-2xl shadow-sm p-6 sm:p-8">
-              <h1 className="text-2xl font-bold mb-4">Разместить объявление</h1>
-              <form onSubmit={handleCreateListing} className="space-y-5">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Название проекта</label>
-                  <input value={sellForm.title} onChange={(e) => setSellForm((prev) => ({ ...prev, title: e.target.value }))} className="w-full rounded-xl border px-4 py-2" placeholder="Например: SaaS для автоматизации продаж" required />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Описание проекта</label>
-                  <textarea value={sellForm.description} onChange={(e) => setSellForm((prev) => ({ ...prev, description: e.target.value }))} className="w-full min-h-[120px] rounded-xl border px-4 py-2" placeholder="Опишите стек, готовность, что нужно доработать" required />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Цена (₽)</label>
-                    <input type="number" value={sellForm.price} onChange={(e) => setSellForm((prev) => ({ ...prev, price: e.target.value }))} className="w-full rounded-xl border px-4 py-2" min="1" required />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Способ выдачи</label>
-                    <select value={sellForm.deliveryMode} onChange={(e) => setSellForm((prev) => ({ ...prev, deliveryMode: e.target.value as DeliveryMode }))} className="w-full rounded-xl border px-4 py-2">
-                      <option value="auto">Автовыдача</option>
-                      <option value="manual">Ручная передача</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Ссылка на проект (GitHub/GitLab)</label>
-                  <input value={sellForm.projectUrl} onChange={(e) => setSellForm((prev) => ({ ...prev, projectUrl: e.target.value }))} className="w-full rounded-xl border px-4 py-2" placeholder="https://github.com/user/repo" />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Файл с кодом (zip/rar/7z)</label>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button type="button" onClick={() => codeFileInputRef.current?.click()} className="rounded-xl border px-4 py-2">Выбрать файл</button>
-                    {codeFile && <span className="inline-flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-1 text-sm"><FileCode className="h-4 w-4" /> {codeFile.name}</span>}
-                  </div>
-                  <input ref={codeFileInputRef} type="file" accept=".zip,.rar,.7z,.tar,.gz,.txt,.md,.pdf" className="hidden" onChange={handleCodeFileChange} />
-                </div>
-
-                <div className="space-y-3">
-                  <label className="text-sm font-medium">Фото проекта (до 5 шт)</label>
-                  <div className="flex flex-wrap gap-3">
-                    {sellImagePreviews.map((src, index) => (
-                      <div key={`${src}-${index}`} className="relative h-24 w-24 overflow-hidden rounded-xl border">
-                        <img src={src} alt="Project preview" className="h-full w-full object-cover" />
-                        <button type="button" onClick={() => removeSellImage(index)} className="absolute right-1 top-1 rounded-full bg-white/90 p-1">
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                    {sellImagePreviews.length < 5 && (
-                      <button type="button" onClick={() => imageInputRef.current?.click()} className="flex h-24 w-24 items-center justify-center rounded-xl border-2 border-dashed text-gray-500 hover:bg-gray-50">
-                        <ImagePlus className="h-6 w-6" />
-                      </button>
-                    )}
-                  </div>
-                  <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleSellImageChange} />
-                </div>
-
-                <button className="w-full rounded-xl bg-black py-2.5 text-white inline-flex items-center justify-center gap-2" type="submit">
-                  <Upload className="h-4 w-4" /> Опубликовать объявление
-                </button>
-              </form>
-            </motion.section>
+            <SellPage
+              sellForm={sellForm}
+              setSellForm={setSellForm}
+              handleCreateListing={handleCreateListing}
+              codeFile={codeFile}
+              codeFileInputRef={codeFileInputRef}
+              handleCodeFileChange={handleCodeFileChange}
+              sellImagePreviews={sellImagePreviews}
+              removeSellImage={removeSellImage}
+              imageInputRef={imageInputRef}
+              handleSellImageChange={handleSellImageChange}
+            />
           )}
 
           {currentPage === 'help' && (
-            <motion.section key="help" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="max-w-3xl mx-auto bg-white border rounded-2xl shadow-sm p-6 sm:p-8">
-              <h1 className="text-2xl font-bold mb-6 text-center">Помощь и FAQ</h1>
-              {[
-                { q: 'Как купить товар?', a: 'Откройте страницу лота, добавьте его в корзину и оформите покупку.' },
-                { q: 'Как продать проект?', a: 'Нажмите Продать, заполните форму и прикрепите файл или ссылку.' },
-                { q: 'Как работает сессия?', a: 'Refresh cookie + access token.' },
-              ].map((faq, idx) => (
-                <div key={idx} onClick={() => setActiveFaq(activeFaq === idx ? null : idx)} className="border rounded-xl p-4 mb-3 cursor-pointer">
-                  <div className="font-bold flex justify-between">{faq.q}<span>{activeFaq === idx ? '-' : '+'}</span></div>
-                  <AnimatePresence>
-                    {activeFaq === idx && (
-                      <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="text-sm text-gray-600 mt-2 overflow-hidden">{faq.a}</motion.p>
-                    )}
-                  </AnimatePresence>
-                </div>
-              ))}
-              <div className="mt-8 text-center">
-                <button onClick={() => setIsContactOpen(true)} className="rounded-xl bg-black px-4 py-2 text-white">Связаться с поддержкой</button>
-              </div>
-            </motion.section>
+            <HelpPage 
+              activeFaq={activeFaq} 
+              setActiveFaq={setActiveFaq} 
+              setIsContactOpen={setIsContactOpen} 
+            />
           )}
 
           {currentPage === 'about' && (
-            <motion.section key="about" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="max-w-3xl mx-auto bg-white border rounded-2xl shadow-sm p-6 sm:p-8">
-              <h1 className="text-3xl font-bold mb-3">О нас</h1>
-              <p className="text-gray-600">NecroCode - платформа для продажи и покупки незавершенных IT-проектов.</p>
-            </motion.section>
+            <AboutPage />
           )}
 
           {currentPage === 'register' && (
-            <motion.section key="register" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="mx-auto max-w-md rounded-2xl border p-6 bg-white shadow-sm">
-              <h1 className="mb-4 text-2xl font-bold">Регистрация</h1>
-              <form className="space-y-3" onSubmit={handleRegister}>
-                <input className="w-full rounded-xl border px-4 py-2" placeholder="Логин" value={registerForm.login} onChange={(e) => setRegisterForm((prev) => ({ ...prev, login: e.target.value }))} required />
-                <input className="w-full rounded-xl border px-4 py-2" type="email" placeholder="Email" value={registerForm.email} onChange={(e) => setRegisterForm((prev) => ({ ...prev, email: e.target.value }))} required />
-                <input className="w-full rounded-xl border px-4 py-2" placeholder="Отображаемое имя" value={registerForm.displayName} onChange={(e) => setRegisterForm((prev) => ({ ...prev, displayName: e.target.value }))} />
-                <input className="w-full rounded-xl border px-4 py-2" type="password" placeholder="Пароль" value={registerForm.password} onChange={(e) => setRegisterForm((prev) => ({ ...prev, password: e.target.value }))} required />
-                <button className="w-full rounded-xl bg-black py-2 text-white" type="submit">Создать аккаунт</button>
-              </form>
-            </motion.section>
+            <RegisterPage registerForm={registerForm} setRegisterForm={setRegisterForm} handleRegister={handleRegister} />
           )}
 
           {currentPage === 'login' && (
-            <motion.section key="login" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="mx-auto max-w-md rounded-2xl border p-6 bg-white shadow-sm">
-              <h1 className="mb-4 text-2xl font-bold">Авторизация</h1>
-              <form className="space-y-3" onSubmit={handleLogin}>
-                <input className="w-full rounded-xl border px-4 py-2" placeholder="Логин" value={loginForm.login} onChange={(e) => setLoginForm((prev) => ({ ...prev, login: e.target.value }))} required />
-                <input className="w-full rounded-xl border px-4 py-2" type="password" placeholder="Пароль" value={loginForm.password} onChange={(e) => setLoginForm((prev) => ({ ...prev, password: e.target.value }))} required />
-                <button className="w-full rounded-xl bg-black py-2 text-white" type="submit">Войти</button>
-              </form>
-            </motion.section>
+            <LoginPage loginForm={loginForm} setLoginForm={setLoginForm} handleLogin={handleLogin} />
           )}
 
           {currentPage === 'profile' && (
-            <motion.section key="profile" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="mx-auto max-w-md rounded-2xl border p-6 bg-white shadow-sm">
-              <div className="mb-4 flex items-center gap-3">
-                <UserCircle className="h-10 w-10" />
-                <div>
-                  <h1 className="text-xl font-bold">Профиль</h1>
-                  <p className="text-sm text-gray-500">Защищенная страница</p>
-                </div>
-              </div>
-              {currentUser ? (
-                <div className="space-y-2 text-sm">
-                  <p><b>ID:</b> {currentUser.id}</p>
-                  <p><b>Логин:</b> {currentUser.login}</p>
-                  <p><b>Email:</b> {currentUser.email || '-'}</p>
-                  <p><b>Имя:</b> {currentUser.displayName || '-'}</p>
-                  <p><b>Баланс:</b> {balance.toLocaleString('ru-RU')} ₽</p>
-                </div>
-              ) : (
-                <p className="text-red-600">Сессия не найдена. Войдите заново.</p>
-              )}
-            </motion.section>
+            <ProfilePage currentUser={currentUser} balance={balance} listings={listings} handleEditListing={handleEditListing} />
           )}
         </AnimatePresence>
 
         <AnimatePresence>
           {isContactOpen && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/40" onClick={() => setIsContactOpen(false)} />
-              <motion.div initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 16 }} className="relative z-10 w-full max-w-lg rounded-3xl bg-white p-6 sm:p-8 shadow-xl">
-                <button onClick={() => setIsContactOpen(false)} className="absolute right-4 top-4 rounded-full p-2 text-gray-500 hover:bg-gray-100">
-                  <X className="h-4 w-4" />
-                </button>
-                <h2 className="text-2xl font-bold mb-2">Написать нам</h2>
-                <p className="text-sm text-gray-500 mb-5">Мы ответим вам в течение 24 часов.</p>
-                <form onSubmit={(e) => { e.preventDefault(); setIsContactOpen(false); setError('Сообщение отправлено в поддержку.') }} className="space-y-3">
-                  <input type="email" required placeholder="example@mail.com" className="w-full rounded-xl border px-4 py-2" />
-                  <textarea required placeholder="Опишите проблему" className="w-full min-h-[120px] rounded-xl border px-4 py-2" />
-                  <button type="submit" className="w-full rounded-xl bg-black py-2 text-white inline-flex items-center justify-center gap-2"><Send className="h-4 w-4" /> Отправить сообщение</button>
-                </form>
-              </motion.div>
-            </div>
+            <ContactModal 
+              setIsContactOpen={setIsContactOpen} 
+              setError={setError} 
+              setSuccessMessage={setSuccessMessage} 
+            />
           )}
         </AnimatePresence>
 
         {error && <p className="mx-auto mt-6 max-w-md rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
+        {successMessage && <p className="mx-auto mt-6 max-w-md rounded-xl bg-green-50 px-4 py-3 text-sm text-green-600">{successMessage}</p>}
       </main>
     </div>
   )

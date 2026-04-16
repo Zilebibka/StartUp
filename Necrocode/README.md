@@ -59,6 +59,8 @@ powershell -ExecutionPolicy Bypass -File .\run-demo-offline.ps1
 - `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`
 - `CORS_ORIGIN`
 
+Для развертывания на Linux-сервере с доменом и HTTPS см. `DEPLOY_UBUNTU.md`.
+
 ## Частые проблемы
 
 - Порт занят: поменяйте `WEB_PORT` в `.env` или освободите порт.

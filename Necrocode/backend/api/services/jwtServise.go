@@ -6,14 +6,13 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"log"
 	"os"
 	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
-
-const defaultJWTSecret = "dev-secret-change-me"
 
 type Claims struct {
 	UserID int64  `json:"user_id"`
@@ -72,7 +71,7 @@ func ParseToken(tokenString string) (*Claims, error) {
 func jwtSecret() []byte {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		secret = defaultJWTSecret
+		log.Fatal("JWT_SECRET is required and must not be empty")
 	}
 	return []byte(secret)
 }

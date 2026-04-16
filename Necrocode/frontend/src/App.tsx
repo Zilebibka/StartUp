@@ -26,38 +26,7 @@ import { RegisterPage, LoginPage, ProfilePage } from './pages/AuthPages'
 import type { Page, User, AuthResponse, Listing, CartItem, DeliveryMode, AppNotification } from './types'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api'
-const DEFAULT_LISTINGS: Listing[] = [
-  {
-    id: 1,
-    title: 'CRM для онлайн-курсов',
-    description: 'Готовый MVP для школы с оплатами, кабинетами и рассылками.',
-    price: 32000,
-    ownerLogin: 'demo_seller',
-    deliveryMode: 'manual',
-    imageDataUrls: [],
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 2,
-    title: 'AI чат для поддержки',
-    description: 'Полуготовый сервис с векторным поиском и историей обращений.',
-    price: 48000,
-    ownerLogin: 'ai_team',
-    deliveryMode: 'auto',
-    imageDataUrls: [],
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 3,
-    title: 'Парсер вакансий + дашборд',
-    description: 'Собирает вакансии из API, агрегирует статистику по ролям и грейдам.',
-    price: 19000,
-    ownerLogin: 'parser_dev',
-    deliveryMode: 'auto',
-    imageDataUrls: [],
-    createdAt: new Date().toISOString(),
-  },
-]
+const DEFAULT_LISTINGS: Listing[] = []
 
 const toDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -549,6 +518,27 @@ function App() {
     setCurrentPage('home')
   }
 
+  const handleDeleteListing = async () => {
+    if (!editingListingId || !window.confirm('Вы уверены, что хотите удалить эту анкету?')) return;
+    
+    try {
+      const res = await fetchWithAuth(`/listings/${editingListingId}`, {
+        method: 'DELETE'
+      });
+
+      if (!res.ok) {
+        throw new Error('Не удалось удалить анкету');
+      }
+
+      setListings((prev) => prev.filter(l => l.id !== editingListingId));
+      addNotification('Анкета удалена', 'success');
+      setEditingListingId(null);
+      setCurrentPage('profile');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка удаления');
+    }
+  }
+
   const handleCreateListing = async (e: FormEvent) => {
     e.preventDefault()
     if (!requireAuth()) return
@@ -619,19 +609,26 @@ function App() {
 
   return (
     <div className="min-h-screen bg-white text-gray-900 font-sans">
-      <header className="fixed top-0 w-full bg-white border-b z-50">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4 md:gap-8">
-            <button className="font-bold text-xl" onClick={navigateToHome}>NecroCode</button>
-            <nav className="hidden md:flex flex-row items-center gap-7 font-medium text-base">
-              <button onClick={handleSellOpen} className="hover:text-blue-600 transition-colors">Продать</button>
-              <button onClick={navigateToHome} className="hover:text-blue-600 transition-colors">Каталог</button>
-              <button onClick={() => setCurrentPage('help')} className="hover:text-blue-600 transition-colors">Помощь</button>
-              <button onClick={() => setCurrentPage('about')} className="hover:text-blue-600 transition-colors">О нас</button>
+      <header className="sticky top-0 w-full bg-white border-b border-gray-200 shadow-sm z-50">
+        <div className="w-full px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-12">
+            <button
+              onClick={navigateToHome}
+              className="flex items-center hover:opacity-80 transition-opacity"
+            >
+              <span className="font-extrabold text-2xl tracking-tight text-gray-900">
+                NecroCode
+              </span>
+            </button>
+            <nav className="hidden md:flex flex-row items-center gap-6 text-sm font-semibold text-gray-700">
+              <button onClick={handleSellOpen} className="hover:text-black transition-colors">Продать</button>
+              <button onClick={navigateToHome} className="hover:text-black transition-colors">Каталог</button>
+              <button onClick={() => setCurrentPage('help')} className="hover:text-black transition-colors">Помощь</button>
+              <button onClick={() => setCurrentPage('about')} className="hover:text-black transition-colors">О нас</button>
             </nav>
           </div>
 
-          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3 sm:gap-5">
+          <div className="flex items-center gap-5 text-gray-600">
             <div className="flex items-center relative h-8 justify-end">
               <AnimatePresence mode="wait">
                 {isSearchOpen && (
@@ -649,16 +646,16 @@ function App() {
                   />
                 )}
               </AnimatePresence>
-              <button onClick={() => setIsSearchOpen((prev) => !prev)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors" title="Поиск">
-                <Search className="w-5 h-5" />
-              </button>
+                <button onClick={() => setIsSearchOpen((prev) => !prev)} className="hover:text-black transition-colors p-1 relative z-10" title="Поиск">
+                  <Search className="w-5 h-5" />
+                </button>
             </div>
 
-            <div className="flex items-center relative h-8 rounded-full bg-gray-50">
+            <div className="flex items-center relative h-8">
               <AnimatePresence mode="wait">
                 {isWalletOpen && (
-                  <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 'auto', opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="flex items-center pl-4 overflow-hidden gap-3 whitespace-nowrap">
-                    <span className="font-bold text-sm">{balance.toLocaleString('ru-RU')} ₽</span>
+                  <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 'auto', opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="flex items-center pr-3 overflow-hidden gap-3 whitespace-nowrap">
+                    <span className="font-bold text-sm text-gray-900">{balance.toLocaleString('ru-RU')} ₽</span>
                     <button onClick={() => { setCurrentPage('topup'); setIsWalletOpen(false) }} className="flex items-center gap-1 bg-black text-white text-xs px-2.5 py-1.5 rounded-lg">
                       <Plus className="w-3 h-3" /> Пополнить
                     </button>
@@ -668,24 +665,25 @@ function App() {
                   </motion.div>
                 )}
               </AnimatePresence>
-              <button onClick={() => setIsWalletOpen((prev) => !prev)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors" title="Кошелек">
+              <button onClick={() => setIsWalletOpen((prev) => !prev)} className="hover:text-black transition-colors p-1" title="Кошелек">
                 <Wallet className="w-5 h-5" />
               </button>
             </div>
 
-            <button onClick={() => setCurrentPage('cart')} className="relative rounded-full p-1 hover:bg-gray-100 transition-colors" title="Корзина">
+            <button onClick={() => setCurrentPage('cart')} className="relative hover:text-black transition-colors p-1" title="Корзина">
               <ShoppingCart className="w-5 h-5" />
-              {cartCount > 0 && <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-black text-white text-[10px] leading-4 text-center">{cartCount}</span>}
+              {cartCount > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-4 h-4 px-1 rounded-full bg-blue-600 text-white text-[10px] font-bold leading-4 text-center">{cartCount}</span>}
             </button>
+            
             <div className="relative hidden sm:block">
               <button 
                 onClick={() => setIsNotificationsOpen(p => !p)} 
-                className="relative rounded-full p-1 hover:bg-gray-100 transition-colors"
+                className="relative hover:text-black transition-colors p-1"
                 title="Уведомления"
               >
                 <Bell className="w-5 h-5" />
                 {notifications.filter(n => !n.read).length > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center select-none shadow-sm animate-pulse">
+                  <span className="absolute -top-1.5 -right-1.5 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-4 text-center select-none shadow-sm animate-pulse">
                     {notifications.filter(n => !n.read).length}
                   </span>
                 )}
@@ -694,6 +692,17 @@ function App() {
               <AnimatePresence>
                 {isNotificationsOpen && (
                   <motion.div
+                    key="notif-backdrop"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsNotificationsOpen(false)}
+                  />
+                )}
+                {isNotificationsOpen && (
+                  <motion.div
+                    key="notif-dropdown"
                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -751,22 +760,31 @@ function App() {
             </div>
 
             {currentUser ? (
-              <div className="flex items-center gap-2">
-                <button onClick={() => setCurrentPage('profile')} className="bg-black text-white px-3 py-2 rounded-full text-sm">{currentUser.login}</button>
-                <button onClick={handleLogout} className="border px-3 py-2 rounded-full"><LogOut className="w-4 h-4" /></button>
+              <div className="flex items-center gap-3 ml-2 border-l pl-4 border-gray-200">
+                <button 
+                  onClick={() => setCurrentPage('profile')}
+                  className="bg-black text-white px-4 py-1.5 rounded-full text-sm font-medium hover:bg-gray-800 transition-colors"
+                >
+                  {currentUser.login || 'User'}
+                </button>
+                <button onClick={handleLogout} className="hover:text-red-500 transition-colors p-1" title="Выйти">
+                  <LogOut className="w-5 h-5" />
+                </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
-                <button onClick={() => setCurrentPage('login')} className="bg-black text-white px-3 py-2 rounded-full text-sm">ВОЙТИ</button>
-                <button onClick={() => setCurrentPage('register')} className="border px-3 py-2 rounded-full text-sm">РЕГИСТРАЦИЯ</button>
+              <div className="flex items-center gap-3 ml-2 border-l pl-4 border-gray-200">
+                <button onClick={() => setCurrentPage('login')} className="text-sm font-semibold hover:text-black">Войти</button>
+                <button onClick={() => setCurrentPage('register')} className="bg-blue-600 text-white px-4 py-1.5 rounded-full text-sm font-medium hover:bg-blue-700">Регистрация</button>
               </div>
             )}
-          </motion.div>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 pt-24 pb-12">
-        <AnimatePresence mode="wait">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-10">
+        <div className="flex flex-col lg:flex-row gap-8">
+          <main className="flex-1">
+            <AnimatePresence mode="wait">
           {currentPage === 'home' && (
             <HomePage 
               searchQuery={searchQuery}
@@ -832,6 +850,8 @@ function App() {
               removeSellImage={removeSellImage}
               imageInputRef={imageInputRef}
               handleSellImageChange={handleSellImageChange}
+              editingListingId={editingListingId}
+              handleDeleteListing={handleDeleteListing}
             />
           )}
 
@@ -872,7 +892,62 @@ function App() {
 
         {error && <p className="mx-auto mt-6 max-w-md rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
         {successMessage && <p className="mx-auto mt-6 max-w-md rounded-xl bg-green-50 px-4 py-3 text-sm text-green-600">{successMessage}</p>}
-      </main>
+          </main>
+
+          {/* Right Sidebar - Recommendations */}
+          {currentPage === 'home' && (
+            <aside className="w-full lg:w-72 hidden md:block shrink-0 mt-4 md:mt-0">
+              <h3 className="text-xl font-extrabold text-blue-950 mb-4">Рекомендации</h3>
+              <div className="space-y-4">
+                {listings.slice(0, 3).map((item) => (
+                  <div key={item.id} onClick={() => openListingPage(item.id)} className="border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg cursor-pointer transition-shadow bg-white pb-3">
+                    <div className="bg-blue-50 h-24 mb-2 p-2 relative">
+                      {item.imageDataUrls && item.imageDataUrls.length > 0 ? (
+                        <div className="w-full h-full bg-cover bg-center rounded opacity-80" style={{ backgroundImage: `url(${item.imageDataUrls[0]})` }}></div>
+                      ) : (
+                        <div className="w-full h-full bg-cover bg-center rounded opacity-80" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1542831371-29b0f74f9713?q=80&w=2070&auto=format&fit=crop)' }}></div>
+                      )}
+                    </div>
+                    <h4 className="font-semibold px-3 text-sm leading-tight text-gray-900 line-clamp-2">{item.title}</h4>
+                    <p className="px-3 mt-1 text-xs text-gray-500 font-medium">{item.price.toLocaleString('ru-RU')} ₽</p>
+                  </div>
+                ))}
+                {listings.length === 0 && (
+                  <p className="text-xs text-gray-400">Нет доступных проектов...</p>
+                )}
+              </div>
+            </aside>
+          )}
+
+        </div>
+      </div>
+
+      {/* FOOTER */}
+      {currentPage === 'home' && (
+      <footer className="mt-auto border-t border-gray-900 bg-black text-gray-400 py-6 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-6">
+            <h2 className="text-xl font-black text-white tracking-tighter cursor-pointer" onClick={() => setCurrentPage('home')}>
+              NECRO<span className="text-gray-500">CODE</span>
+            </h2>
+            <p className="text-xs font-semibold text-gray-500 hidden sm:block">
+              © {new Date().getFullYear()} Все права защищены.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-6 text-sm font-medium">
+            <button onClick={() => setCurrentPage('sell')} className="hover:text-white transition-colors">Продать</button>
+            <button onClick={() => setCurrentPage('about')} className="hover:text-white transition-colors">О нас</button>
+            <button onClick={() => setCurrentPage('help')} className="hover:text-white transition-colors">Помощь</button>
+          </div>
+          
+          <div className="flex items-center gap-2 text-xs font-bold bg-gray-900 px-3 py-1.5 rounded-full border border-gray-800 text-gray-400 hidden lg:flex">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+            Сервера <span className="text-white">ОК</span>
+          </div>
+        </div>
+      </footer>
+      )}
     </div>
   )
 }

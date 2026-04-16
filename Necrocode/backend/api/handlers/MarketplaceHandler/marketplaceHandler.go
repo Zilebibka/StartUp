@@ -203,6 +203,37 @@ func (h Handler) CreateListing(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(result)
 }
 
+
+
+func (h Handler) DeleteListing(w http.ResponseWriter, r *http.Request) {
+	userID, _ := r.Context().Value(middlewares.ContextUserIDKey).(int64)
+	if userID == 0 {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	listingIDStr := chi.URLParam(r, "listingID")
+	listingID, err := strconv.ParseInt(listingIDStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid listing ID")
+		return
+	}
+
+	res, err := h.DB.Exec("DELETE FROM listings WHERE id = $1 AND seller_user_id = $2", listingID, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete listing")
+		return
+	}
+	
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		writeError(w, http.StatusForbidden, "not allowed or listing not found")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h Handler) UpdateListing(w http.ResponseWriter, r *http.Request) {
 	userID, _ := r.Context().Value(middlewares.ContextUserIDKey).(int64)
 	if userID == 0 {
@@ -461,3 +492,4 @@ func writeError(w http.ResponseWriter, status int, message string) {
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
 }
+

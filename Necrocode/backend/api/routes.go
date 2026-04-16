@@ -44,6 +44,7 @@ func NewRouter(db *sql.DB) http.Handler {
 			r.Use(middlewares.AuthMiddleware)
 			r.Post("/listings", marketHandler.CreateListing)
 			r.Put("/listings/{listingID}", marketHandler.UpdateListing)
+			r.Delete("/listings/{listingID}", marketHandler.DeleteListing)
 			r.Get("/cart", marketHandler.GetCart)
 			r.Post("/cart/items", marketHandler.SetCartItem)
 			r.Delete("/cart/items/{listingID}", marketHandler.RemoveCartItem)

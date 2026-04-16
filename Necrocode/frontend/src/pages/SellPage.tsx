@@ -14,16 +14,19 @@ interface SellPageProps {
   removeSellImage: (index: number) => void;
   imageInputRef: RefObject<HTMLInputElement | null>;
   handleSellImageChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  editingListingId: number | null;
+  handleDeleteListing: () => void;
 }
 
 export function SellPage({
   sellForm, setSellForm, handleCreateListing,
   codeFile, codeFileInputRef, handleCodeFileChange,
-  sellImagePreviews, removeSellImage, imageInputRef, handleSellImageChange
+  sellImagePreviews, removeSellImage, imageInputRef, handleSellImageChange,
+  editingListingId, handleDeleteListing
 }: SellPageProps) {
   return (
     <motion.section key="sell" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="max-w-2xl mx-auto bg-white border rounded-2xl shadow-sm p-6 sm:p-8">
-      <h1 className="text-2xl font-bold mb-4">Разместить объявление</h1>
+      <h1 className="text-2xl font-bold mb-4">{editingListingId ? 'Редактировать объявление' : 'Разместить объявление'}</h1>
       <form onSubmit={handleCreateListing} className="space-y-5">
         <div className="space-y-2">
           <label className="text-sm font-medium">Название проекта</label>
@@ -83,9 +86,21 @@ export function SellPage({
           <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleSellImageChange} />
         </div>
 
-        <button className="w-full rounded-xl bg-black py-2.5 text-white inline-flex items-center justify-center gap-2" type="submit">
-          <Upload className="h-4 w-4" /> Опубликовать объявление
-        </button>
+        <div className="flex gap-4">
+          <button className="flex-1 rounded-xl bg-black py-2.5 text-white inline-flex items-center justify-center gap-2 transition hover:bg-gray-800" type="submit">
+            <Upload className="h-4 w-4" /> {editingListingId ? 'Сохранить изменения' : 'Опубликовать объявление'}
+          </button>
+          
+          {editingListingId && (
+            <button 
+              type="button" 
+              onClick={handleDeleteListing}
+              className="rounded-xl border border-red-500 text-red-600 px-6 py-2.5 font-medium hover:bg-red-50 transition-colors"
+            >
+              Удалить
+            </button>
+          )}
+        </div>
       </form>
     </motion.section>
   );

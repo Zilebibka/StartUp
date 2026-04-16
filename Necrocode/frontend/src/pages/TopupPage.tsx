@@ -11,14 +11,14 @@ interface TopupPageProps {
 
 export function TopupPage({ balance, topupAmount, setTopupAmount, paymentMethod, setPaymentMethod, handleTopup }: TopupPageProps) {
   return (
-    <motion.section key="topup" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="max-w-3xl mx-auto bg-white border rounded-2xl shadow-sm p-8 space-y-6">
+    <motion.section key="topup" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="max-w-3xl mx-auto bg-white border rounded-2xl shadow-sm p-4 sm:p-8 space-y-5 sm:space-y-6">
       <h1 className="text-2xl font-bold">Пополнение баланса</h1>
       <p className="text-sm text-gray-500">Текущий баланс: <b>{balance.toLocaleString('ru-RU')} ₽</b></p>
       <div className="space-y-4">
         <label className="text-sm font-medium">Сумма пополнения (₽)</label>
         <div className="flex flex-wrap gap-2">
           {[100, 500, 1000, 2000, 5000].map((amount) => (
-            <button key={amount} onClick={() => setTopupAmount(amount)} className={`px-4 py-2 border rounded-xl ${topupAmount === amount ? 'bg-black text-white' : ''}`}>{amount} ₽</button>
+            <button key={amount} onClick={() => setTopupAmount(amount)} className={`px-3 sm:px-4 py-2 border rounded-xl text-sm ${topupAmount === amount ? 'bg-black text-white' : ''}`}>{amount} ₽</button>
           ))}
         </div>
         <input type="number" value={topupAmount} onChange={(e) => setTopupAmount(e.target.value ? Number(e.target.value) : '')} className="w-full px-4 py-3 bg-gray-50 border rounded-xl" min="100" />

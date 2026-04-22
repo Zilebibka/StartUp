@@ -16,6 +16,7 @@ import {
 import { AnimatePresence, motion } from 'framer-motion'
 
 import { HomePage } from './pages/HomePage'
+import { CatalogPage } from './pages/CatalogPage'
 import { ListingPage } from './pages/ListingPage'
 import { CartPage } from './pages/CartPage'
 import { TopupPage } from './pages/TopupPage'
@@ -115,6 +116,8 @@ function App() {
     title: '',
     description: '',
     price: '',
+    category: 'apps',
+    techStack: '',
     projectUrl: '',
     deliveryMode: 'auto' as DeliveryMode,
   })
@@ -363,6 +366,8 @@ function App() {
       title: listing.title,
       description: listing.description,
       price: listing.price.toString(),
+      category: listing.category || 'apps',
+      techStack: listing.techStack || '',
       projectUrl: listing.projectUrl || '',
       deliveryMode: listing.deliveryMode,
     })
@@ -561,6 +566,8 @@ function App() {
         title: sellForm.title.trim(),
         description: sellForm.description.trim(),
         price,
+        category: sellForm.category,
+        techStack: sellForm.techStack.trim(),
         deliveryMode: sellForm.deliveryMode,
         projectUrl: sellForm.projectUrl.trim(),
         codeFileName: codeFile?.name,
@@ -594,7 +601,7 @@ function App() {
         addNotification('Анкета успешно создана.', 'success')
       }
 
-      setSellForm({ title: '', description: '', price: '', projectUrl: '', deliveryMode: 'auto' })
+      setSellForm({ title: '', description: '', price: '', category: 'apps', techStack: '', projectUrl: '', deliveryMode: 'auto' })
       setEditingListingId(null)
       setSellImages([])
       setCodeFile(null)
@@ -621,10 +628,10 @@ function App() {
               </span>
             </button>
             <nav className="hidden md:flex flex-row items-center gap-6 text-sm font-semibold text-gray-700">
-              <button onClick={handleSellOpen} className="hover:text-black transition-colors">Продать</button>
-              <button onClick={navigateToHome} className="hover:text-black transition-colors">Каталог</button>
-              <button onClick={() => setCurrentPage('help')} className="hover:text-black transition-colors">Помощь</button>
-              <button onClick={() => setCurrentPage('about')} className="hover:text-black transition-colors">О нас</button>
+              <button onClick={handleSellOpen} className={currentPage === 'sell' ? 'text-black' : 'hover:text-black transition-colors'}>Продать</button>
+              <button onClick={() => setCurrentPage('catalog')} className={currentPage === 'catalog' ? 'text-black' : 'hover:text-black transition-colors'}>Каталог</button>
+              <button onClick={() => setCurrentPage('help')} className={currentPage === 'help' ? 'text-black' : 'hover:text-black transition-colors'}>Помощь</button>
+              <button onClick={() => setCurrentPage('about')} className={currentPage === 'about' ? 'text-black' : 'hover:text-black transition-colors'}>О нас</button>
             </nav>
           </div>
 
@@ -795,6 +802,13 @@ function App() {
             />
           )}
 
+          {currentPage === 'catalog' && (
+            <CatalogPage 
+              listings={listings}
+              openListingPage={openListingPage}
+            />
+          )}
+
           {currentPage === 'listing' && selectedListing && (
             <ListingPage 
               selectedListing={selectedListing}
@@ -895,7 +909,7 @@ function App() {
           </main>
 
           {/* Right Sidebar - Recommendations */}
-          {currentPage === 'home' && (
+          {(currentPage === 'home' || currentPage === 'catalog') && (
             <aside className="w-full lg:w-72 hidden md:block shrink-0 mt-4 md:mt-0">
               <h3 className="text-xl font-extrabold text-blue-950 mb-4">Рекомендации</h3>
               <div className="space-y-4">

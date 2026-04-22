@@ -1,4 +1,4 @@
-export type Page = 'home' | 'topup' | 'withdraw' | 'sell' | 'help' | 'about' | 'login' | 'register' | 'profile' | 'cart' | 'listing'
+﻿export type Page = 'home' | 'catalog' | 'topup' | 'withdraw' | 'sell' | 'help' | 'about' | 'login' | 'register' | 'profile' | 'cart' | 'listing'
 export type DeliveryMode = 'auto' | 'manual'
 
 export type User = {
@@ -20,6 +20,8 @@ export type Listing = {
   description: string
   price: number
   ownerLogin: string
+  category: string 
+  techStack: string
   deliveryMode: DeliveryMode
   projectUrl?: string
   codeFileName?: string

@@ -5,4 +5,19 @@
     background-color: white;
     color: black;
   }
+
+  button,
+  [role='button'],
+  a,
+  summary,
+  input[type='button'],
+  input[type='submit'],
+  input[type='reset'] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  input:disabled {
+    cursor: not-allowed;
+  }
 }

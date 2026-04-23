@@ -32,9 +32,12 @@ func InitSchema(db *sql.DB) error {
 	const usersTableQuery = `
 CREATE TABLE IF NOT EXISTS users (
 	id BIGSERIAL PRIMARY KEY,
+	public_id VARCHAR(32) UNIQUE NOT NULL,
 	login VARCHAR(64) UNIQUE NOT NULL,
 	email VARCHAR(255),
 	display_name VARCHAR(100) NOT NULL DEFAULT '',
+	avatar_data_url TEXT NOT NULL DEFAULT '',
+	birth_date DATE,
 	password_hash TEXT NOT NULL,
 	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );`
@@ -46,7 +49,13 @@ CREATE TABLE IF NOT EXISTS users (
 	const usersMigrationQuery = `
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(100) NOT NULL DEFAULT '';
+	ALTER TABLE users ADD COLUMN IF NOT EXISTS public_id VARCHAR(32);
+	ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_data_url TEXT NOT NULL DEFAULT '';
+	ALTER TABLE users ADD COLUMN IF NOT EXISTS birth_date DATE;
+	UPDATE users SET public_id = 'nc_' || id WHERE public_id IS NULL OR public_id = '';
 CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique_idx ON users(email) WHERE email IS NOT NULL;
+	CREATE UNIQUE INDEX IF NOT EXISTS users_public_id_unique_idx ON users(public_id);
+	CREATE INDEX IF NOT EXISTS users_display_name_lower_idx ON users(LOWER(display_name));
 `
 
 	if _, err := db.Exec(usersMigrationQuery); err != nil {

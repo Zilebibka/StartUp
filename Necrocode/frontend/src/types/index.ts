@@ -1,11 +1,14 @@
-﻿export type Page = 'home' | 'catalog' | 'topup' | 'withdraw' | 'sell' | 'help' | 'about' | 'login' | 'register' | 'profile' | 'cart' | 'listing'
+﻿export type Page = 'home' | 'catalog' | 'topup' | 'withdraw' | 'sell' | 'help' | 'about' | 'login' | 'register' | 'profile' | 'cart' | 'listing' | 'settings'
 export type DeliveryMode = 'auto' | 'manual'
 
 export type User = {
   id: number
+  publicId?: string
   login: string
   email?: string
   displayName?: string
+  avatarDataUrl?: string
+  birthDate?: string
   createdAt?: string
 }
 

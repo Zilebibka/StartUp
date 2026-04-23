@@ -4,9 +4,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	authhandler "Necrocode/api/handlers/AuthHandler"
 	marketplacehandler "Necrocode/api/handlers/MarketplaceHandler"
+	userhandler "Necrocode/api/handlers/UserHandler"
 	"Necrocode/api/middlewares"
 
 	"github.com/go-chi/chi/v5"
@@ -23,6 +25,7 @@ func NewRouter(db *sql.DB) http.Handler {
 
 	authHandler := authhandler.Handler{DB: db}
 	marketHandler := marketplacehandler.Handler{DB: db}
+	userHandler := userhandler.Handler{DB: db}
 
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/listings", marketHandler.ListListings)
@@ -32,6 +35,9 @@ func NewRouter(db *sql.DB) http.Handler {
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 		})
+
+		r.Get("/users/search", userHandler.Search)
+		r.Get("/users/{publicID}", userHandler.GetByPublicID)
 
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/register", authHandler.Register)
@@ -48,34 +54,46 @@ func NewRouter(db *sql.DB) http.Handler {
 			r.Get("/cart", marketHandler.GetCart)
 			r.Post("/cart/items", marketHandler.SetCartItem)
 			r.Delete("/cart/items/{listingID}", marketHandler.RemoveCartItem)
+			r.Put("/me/settings", authHandler.UpdateSettings)
 
 			r.Get("/me", func(w http.ResponseWriter, r *http.Request) {
 				userID, _ := r.Context().Value(middlewares.ContextUserIDKey).(int64)
 
 				const profileQuery = `
-					SELECT login, COALESCE(email, ''), display_name
+					SELECT COALESCE(public_id, ''), login, COALESCE(email, ''), display_name, COALESCE(avatar_data_url, ''), birth_date
 					FROM users
 					WHERE id = $1
 				`
 
 				var (
+					publicID    string
 					login       string
 					email       string
 					displayName string
+					avatarDataURL string
+					birthDate sql.NullTime
 				)
-				if err := db.QueryRow(profileQuery, userID).Scan(&login, &email, &displayName); err != nil {
+				if err := db.QueryRow(profileQuery, userID).Scan(&publicID, &login, &email, &displayName, &avatarDataURL, &birthDate); err != nil {
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusInternalServerError)
 					_ = json.NewEncoder(w).Encode(map[string]string{"error": "failed to load profile"})
 					return
 				}
 
+				birthDateStr := ""
+				if birthDate.Valid {
+					birthDateStr = birthDate.Time.In(time.UTC).Format("2006-01-02")
+				}
+
 				w.Header().Set("Content-Type", "application/json")
 				_ = json.NewEncoder(w).Encode(map[string]any{
 					"id":          userID,
+					"publicId":    publicID,
 					"login":       login,
 					"email":       email,
 					"displayName": displayName,
+					"avatarDataUrl": avatarDataURL,
+					"birthDate":   birthDateStr,
 				})
 			})
 		})

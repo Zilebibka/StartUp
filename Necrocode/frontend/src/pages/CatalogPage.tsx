@@ -6,9 +6,10 @@ import type { Listing } from '../types'
 interface CatalogPageProps {
   listings: Listing[];
   openListingPage: (id: number) => void;
+  openUserProfile: (login: string) => void;
 }
 
-export function CatalogPage({ listings, openListingPage }: CatalogPageProps) {
+export function CatalogPage({ listings, openListingPage, openUserProfile }: CatalogPageProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchStack, setSearchStack] = useState('')
   const [selectedTypes, setSelectedTypes] = useState<string[]>([])
@@ -227,6 +228,15 @@ export function CatalogPage({ listings, openListingPage }: CatalogPageProps) {
                    <p className="text-[11px] text-gray-500 font-medium leading-relaxed">
                        {item.techStack || 'Стек не указан'}
                    </p>
+                   <button
+                     onClick={(e) => {
+                       e.stopPropagation()
+                       openUserProfile(item.ownerLogin)
+                     }}
+                     className="mt-2 self-start text-[11px] text-gray-500 hover:text-black"
+                   >
+                     Продавец: {item.ownerLogin}
+                   </button>
                 </div>
               </motion.div>
             ))}

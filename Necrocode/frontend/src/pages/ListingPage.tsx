@@ -6,9 +6,10 @@ interface ListingPageProps {
   selectedListing: Listing;
   handleAddToCart: (id: number) => void;
   navigateToHome: () => void;
+  openUserProfile: (login: string) => void;
 }
 
-export function ListingPage({ selectedListing, handleAddToCart, navigateToHome }: ListingPageProps) {
+export function ListingPage({ selectedListing, handleAddToCart, navigateToHome, openUserProfile }: ListingPageProps) {
   return (
     <motion.section key="listing" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
       <div className="space-y-4">
@@ -25,7 +26,12 @@ export function ListingPage({ selectedListing, handleAddToCart, navigateToHome }
       </div>
       <div className="space-y-4 rounded-2xl border p-4 sm:p-6">
         <h1 className="text-2xl sm:text-3xl font-bold">{selectedListing.title}</h1>
-        <p className="text-sm text-gray-500">Продавец: {selectedListing.ownerLogin}</p>
+        <button
+          onClick={() => openUserProfile(selectedListing.ownerLogin)}
+          className="text-sm text-gray-500 hover:text-black"
+        >
+          Продавец: {selectedListing.ownerLogin}
+        </button>
         <p className="text-gray-700 whitespace-pre-wrap">{selectedListing.description}</p>
         <p className="text-2xl font-bold">{selectedListing.price.toLocaleString('ru-RU')} ₽</p>
         <p className="text-sm text-gray-500">Выдача: {selectedListing.deliveryMode === 'auto' ? 'Автовыдача' : 'Ручная передача'}</p>

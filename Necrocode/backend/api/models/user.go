@@ -9,9 +9,12 @@ import (
 
 type User struct {
 	ID           int64  `json:"id"`
+	PublicID     string `json:"publicId"`
 	Login        string `json:"login"`
 	Email        string `json:"email,omitempty"`
 	DisplayName  string `json:"displayName,omitempty"`
+	AvatarDataURL string `json:"avatarDataUrl,omitempty"`
+	BirthDate    string `json:"birthDate,omitempty"`
 	CreatedAt    time.Time `json:"createdAt,omitempty"`
 	PasswordHash string `json:"-"`
 }

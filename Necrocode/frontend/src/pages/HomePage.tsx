@@ -6,10 +6,11 @@ interface HomePageProps {
   filteredListings: Listing[];
   listings: Listing[];
   openListingPage: (id: number) => void;
+  openUserProfile: (login: string) => void;
   handleAddToCart: (id: number) => void;
 }
 
-export function HomePage({ filteredListings, openListingPage, handleAddToCart }: HomePageProps) {
+export function HomePage({ filteredListings, openListingPage, openUserProfile, handleAddToCart }: HomePageProps) {
   return (
     <motion.section 
       key="home" 
@@ -90,6 +91,14 @@ export function HomePage({ filteredListings, openListingPage, handleAddToCart }:
                  <p className="text-xs text-gray-500 font-medium leading-relaxed">
                      {item.techStack || 'Стек не указан'}
                  </p>
+                 <div className="mt-2">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openUserProfile(item.ownerLogin); }}
+                      className="text-xs text-gray-500 hover:text-black"
+                    >
+                      Продавец: {item.ownerLogin}
+                    </button>
+                 </div>
                  <div className="mt-4 flex gap-2">
                     <button 
                        onClick={(e) => { e.stopPropagation(); handleAddToCart(item.id); }} 
@@ -106,13 +115,6 @@ export function HomePage({ filteredListings, openListingPage, handleAddToCart }:
         {filteredListings.length === 0 && (
           <p className="text-sm text-gray-500 py-10 text-center bg-gray-50 rounded-xl">По вашему запросу ничего не найдено.</p>
         )}
-      </section>
-
-      <section className="pt-8 pb-16">
-        <h2 className="text-xl font-extrabold text-blue-950 mb-4">О Нас</h2>
-        <p className="text-gray-700 font-medium max-w-3xl leading-relaxed">
-          NecroCode — это маркетплейс для покупки заброшенных цифровых продуктов: от недоработанного кода и мёртвых веб-сайтов до заброшенных мобильных приложений.
-        </p>
       </section>
     </motion.section>
   );

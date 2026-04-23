@@ -166,13 +166,19 @@ function CustomDatePicker({ date, onDateChange }: { date: string, onDateChange: 
 
 interface ProfilePageProps {
   currentUser: User | null;
+  viewedUser?: User | null;
+  isOwnProfile?: boolean;
   balance: number;
   listings: Listing[];
   handleEditListing: (listing: Listing) => void;
+  openListingPage: (id: number) => void;
+  openUserProfile: (login: string) => void;
+  onUpdateAccountSettings: (payload: { currentPassword: string; email: string; newPassword: string }) => Promise<void>;
 }
 
-export function ProfilePage({ currentUser, balance, listings, handleEditListing }: ProfilePageProps) {
-  const userListings = listings.filter((l) => l.ownerLogin === currentUser?.login);
+export function ProfilePage({ currentUser, viewedUser, isOwnProfile = false, balance, listings, handleEditListing, openListingPage, openUserProfile, onUpdateAccountSettings }: ProfilePageProps) {
+  const profileUser = viewedUser ?? currentUser;
+  const userListings = listings.filter((l) => l.ownerLogin === profileUser?.login);
   const EMOJI_AVATARS = ['😎', '💀', '👻', '👾', '🤖', '🤠', '🦊', '🚀', '🔥', '👑', '🥺', '🤡', '🌟'];
   const [dob, setDob] = useState("");
   const [avatar, setAvatar] = useState(EMOJI_AVATARS[0]);
@@ -181,10 +187,26 @@ export function ProfilePage({ currentUser, balance, listings, handleEditListing 
   const [newReviewText, setNewReviewText] = useState("");
   const [newReviewRating, setNewReviewRating] = useState(5);
   const [reviewSort, setReviewSort] = useState("new");
+  const [settingsEmail, setSettingsEmail] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [settingsMessage, setSettingsMessage] = useState("");
+  const [settingsError, setSettingsError] = useState("");
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const isImageAvatar = avatar.startsWith('data:image/');
+
+  const canReviewThisProfile = !!currentUser?.login && !!profileUser?.login && currentUser.login !== profileUser.login;
 
   useEffect(() => {
-    if (currentUser?.login) {
-      const savedSettings = localStorage.getItem("profileSettings_" + currentUser.login);
+    if (!profileUser?.login) {
+      setReviews([]);
+      setDob("");
+      setAvatar(EMOJI_AVATARS[0]);
+      return;
+    }
+
+    if (isOwnProfile) {
+      const savedSettings = localStorage.getItem("profileSettings_" + profileUser.login);
       if (savedSettings) {
         try {
           const parsed = JSON.parse(savedSettings);
@@ -192,18 +214,26 @@ export function ProfilePage({ currentUser, balance, listings, handleEditListing 
           if (parsed.avatar) setAvatar(parsed.avatar);
         } catch(e) {}
       }
-
-      const savedReviews = localStorage.getItem("profileReviews_" + currentUser.login);
-      if (savedReviews) {
-        try {
-          setReviews(JSON.parse(savedReviews));
-        } catch(e) {}
-      }
+    } else {
+      setDob("");
+      setAvatar(EMOJI_AVATARS[0]);
     }
-  }, [currentUser]);
+
+    const savedReviews = localStorage.getItem("profileReviews_" + profileUser.login);
+    if (savedReviews) {
+      try {
+        setReviews(JSON.parse(savedReviews));
+      } catch(e) {
+        setReviews([]);
+      }
+    } else {
+      setReviews([]);
+    }
+  }, [profileUser, isOwnProfile]);
 
   const handleAddReview = () => {
-    if (!newReviewText.trim() || !currentUser?.login) return;
+    if (!canReviewThisProfile) return;
+    if (!newReviewText.trim() || !currentUser?.login || !profileUser?.login) return;
     const newR = {
       id: Date.now(),
       text: newReviewText,
@@ -215,7 +245,39 @@ export function ProfilePage({ currentUser, balance, listings, handleEditListing 
     setReviews(updated);
     setNewReviewText("");
     setNewReviewRating(5);
-    localStorage.setItem("profileReviews_" + currentUser.login, JSON.stringify(updated));
+    localStorage.setItem("profileReviews_" + profileUser.login, JSON.stringify(updated));
+  };
+
+  const handleSettingsSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setSettingsMessage("");
+    setSettingsError("");
+
+    if (!isOwnProfile) return;
+    if (!currentPassword.trim()) {
+      setSettingsError('Введите текущий пароль.');
+      return;
+    }
+    if (!settingsEmail.trim() && !newPassword.trim()) {
+      setSettingsError('Укажите новый email или новый пароль.');
+      return;
+    }
+
+    setIsSavingSettings(true);
+    try {
+      await onUpdateAccountSettings({
+        currentPassword: currentPassword.trim(),
+        email: settingsEmail.trim(),
+        newPassword: newPassword.trim(),
+      });
+      setSettingsMessage('Настройки аккаунта обновлены.');
+      setCurrentPassword("");
+      setNewPassword("");
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : 'Не удалось обновить настройки аккаунта.');
+    } finally {
+      setIsSavingSettings(false);
+    }
   };
 
   const avgRating = reviews.length > 0 ? (reviews.reduce((acc, current) => acc + current.rating, 0) / reviews.length).toFixed(1) : "0.0";
@@ -239,12 +301,17 @@ export function ProfilePage({ currentUser, balance, listings, handleEditListing 
   });
 
   const saveSettings = (newDob: string, newAvatar: string) => {
-    if (currentUser?.login) {
-      localStorage.setItem("profileSettings_" + currentUser.login, JSON.stringify({ dob: newDob, avatar: newAvatar }));
+    if (isOwnProfile && profileUser?.login) {
+      localStorage.setItem("profileSettings_" + profileUser.login, JSON.stringify({ dob: newDob, avatar: newAvatar }));
     }
   };
 
-  if (!currentUser) return <p className="text-red-500 p-8 text-center text-lg font-bold">Сессия не найдена. Войдите заново.</p>;
+  useEffect(() => {
+    if (!isOwnProfile || !profileUser) return;
+    setSettingsEmail(profileUser.email || "");
+  }, [isOwnProfile, profileUser?.email]);
+
+  if (!profileUser) return <p className="text-red-500 p-8 text-center text-lg font-bold">Профиль не найден.</p>;
 
   return (
     <motion.section key="profile" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="mx-auto max-w-5xl">
@@ -256,28 +323,23 @@ export function ProfilePage({ currentUser, balance, listings, handleEditListing 
             <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-white -z-10"></div>
             <div className="absolute -right-8 -top-8 w-40 h-40 bg-blue-50/50 rounded-full blur-3xl pointer-events-none"></div>
 
-            <div className="relative mb-5 z-10 w-28 h-28 rounded-full border-4 border-white shadow-xl shadow-gray-200 flex items-center justify-center text-5xl bg-white cursor-pointer overflow-hidden transform hover:scale-105 transition-transform duration-300 group">
-              <motion.span 
-                key={avatar} 
-                initial={{ scale: 0.5, rotate: -20, opacity: 0 }} 
-                animate={{ scale: 1, rotate: 0, opacity: 1 }} 
-                transition={{ type: "spring", stiffness: 200, damping: 15 }}
-              >
-                {avatar}
-              </motion.span>
-              <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm">
-                <span className="text-[10px] text-white font-black uppercase tracking-widest leading-tight">СМЕНИТЬ<br/>ЭМОДЗИ</span>
-              </div>
-              <select 
-                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-20"
-                value={avatar} 
-                onChange={(e) => { setAvatar(e.target.value); saveSettings(dob, e.target.value); }}
-              >
-                {EMOJI_AVATARS.map(emo => <option key={emo} value={emo}>{emo}</option>)}
-              </select>
+            <div className="relative mb-5 z-10 w-28 h-28 rounded-full border-4 border-white shadow-xl shadow-gray-200 flex items-center justify-center text-5xl bg-white overflow-hidden">
+              {isImageAvatar ? (
+                <img src={avatar} alt="Avatar" className="h-full w-full object-cover" />
+              ) : (
+                <motion.span
+                  key={avatar}
+                  initial={{ scale: 0.5, rotate: -20, opacity: 0 }}
+                  animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                  transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                >
+                  {avatar}
+                </motion.span>
+              )}
             </div>
             
-            <h2 className="text-2xl font-black text-gray-900 mb-1 z-10">{currentUser.displayName || currentUser.login}</h2>
+            <h2 className="text-2xl font-black text-gray-900 mb-1 z-10">{profileUser.displayName || profileUser.login}</h2>
+            <div className="mb-3 text-xs font-bold text-gray-500">ID профиля: {profileUser.publicId || '—'}</div>
             <div className="flex items-center justify-center gap-1 mb-2 z-10">
               <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
               <span className="font-bold text-gray-900">{avgRating}</span>
@@ -293,7 +355,7 @@ export function ProfilePage({ currentUser, balance, listings, handleEditListing 
                   <div className="w-8 h-8 rounded-xl bg-white shadow-sm flex items-center justify-center text-gray-400 border border-gray-100"><Tag className="w-4 h-4" /></div>
                   <div className="text-xs font-extrabold text-gray-400 uppercase tracking-widest">Логин</div>
                 </div>
-                <div className="font-bold text-gray-900">{currentUser.login}</div>
+                <div className="font-bold text-gray-900">{profileUser.login}</div>
               </div>
               
               <div className="flex items-center justify-between p-3 rounded-2xl bg-gray-50/80 border border-gray-100 hover:bg-gray-100 transition-colors">
@@ -301,26 +363,72 @@ export function ProfilePage({ currentUser, balance, listings, handleEditListing 
                   <div className="w-8 h-8 rounded-xl bg-white shadow-sm flex items-center justify-center text-gray-400 border border-gray-100"><Mail className="w-4 h-4" /></div>
                   <div className="text-xs font-extrabold text-gray-400 uppercase tracking-widest">Email</div>
                 </div>
-                <div className="font-bold text-gray-900 truncate max-w-[120px]">{currentUser.email || '—'}</div>
+                <div className="font-bold text-gray-900 truncate max-w-[120px]">{isOwnProfile ? (profileUser.email || '—') : 'Скрыт'}</div>
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-blue-50 border border-blue-100">
+              {isOwnProfile && <div className="flex items-center justify-between p-3 rounded-2xl bg-blue-50 border border-blue-100">
                 <div className="flex items-center gap-3 text-sm">
                   <div className="w-8 h-8 rounded-xl bg-white shadow-sm flex items-center justify-center text-blue-500 border border-blue-100"><Wallet className="w-4 h-4" /></div>
                   <div className="text-xs font-extrabold text-blue-500 uppercase tracking-widest">Баланс</div>
                 </div>
                 <div className="font-black text-blue-600 text-lg">{balance.toLocaleString('ru-RU')} ₽</div>
-              </div>
+              </div>}
             </div>
           </div>
 
-          <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-xl shadow-gray-200/20 flex flex-col gap-3">
+          {isOwnProfile && <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-xl shadow-gray-200/20 flex flex-col gap-3">
             <h3 className="font-extrabold text-gray-900 flex items-center gap-2 mb-2"><BadgeCheck className="w-5 h-5 text-gray-800" /> Персональная инфо</h3>
             <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Ваша Дата Рождения</label>
               <CustomDatePicker date={dob} onDateChange={(newDate) => { setDob(newDate); saveSettings(newDate, avatar); }} />
             </div>
-          </div>
+          </div>}
+
+          {isOwnProfile && <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-xl shadow-gray-200/20 flex flex-col gap-3">
+            <h3 className="font-extrabold text-gray-900 mb-2">Безопасность аккаунта</h3>
+            <form onSubmit={handleSettingsSubmit} className="space-y-3">
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Новый Email</label>
+                <input
+                  type="email"
+                  value={settingsEmail}
+                  onChange={(e) => setSettingsEmail(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="example@mail.com"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Текущий пароль</label>
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="Введите текущий пароль"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Новый пароль</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="Оставьте пустым, если менять не нужно"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isSavingSettings}
+                className="w-full rounded-xl bg-black text-white py-2.5 font-bold hover:bg-gray-800 transition-colors disabled:opacity-60"
+              >
+                {isSavingSettings ? 'Сохраняем...' : 'Сохранить изменения'}
+              </button>
+              {settingsError && <p className="text-xs text-red-600">{settingsError}</p>}
+              {settingsMessage && <p className="text-xs text-emerald-600">{settingsMessage}</p>}
+            </form>
+          </div>}
         </div>
 
         {/* Right Column: Stats & Listings */}
@@ -342,7 +450,7 @@ export function ProfilePage({ currentUser, balance, listings, handleEditListing 
 
           <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-xl shadow-gray-200/20 flex-1 flex flex-col">
             <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-100">
-              <h2 className="text-2xl font-extrabold text-gray-900">Мои Анкеты</h2>
+              <h2 className="text-2xl font-extrabold text-gray-900">{isOwnProfile ? 'Мои Анкеты' : 'Анкеты пользователя'}</h2>
               <span className="px-3.5 py-1.5 bg-gray-100 text-gray-600 text-xs font-black rounded-full uppercase tracking-wider">{userListings.length} ШТУК</span>
             </div>
 
@@ -364,7 +472,8 @@ export function ProfilePage({ currentUser, balance, listings, handleEditListing 
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     key={listing.id} 
-                    className="group flex flex-col sm:flex-row justify-between items-start sm:items-center p-5 border border-gray-100 rounded-2xl hover:border-black hover:shadow-lg transition-all bg-white relative overflow-hidden"
+                    className="group flex flex-col sm:flex-row justify-between items-start sm:items-center p-5 border border-gray-100 rounded-2xl hover:border-black hover:shadow-lg transition-all bg-white relative overflow-hidden cursor-pointer"
+                    onClick={() => openListingPage(listing.id)}
                   >
                     <div className="absolute inset-y-0 left-0 w-2 bg-black scale-y-0 group-hover:scale-y-100 transition-transform origin-bottom duration-300"></div>
                     <div className="mb-4 sm:mb-0 ml-1 sm:ml-4">
@@ -374,13 +483,16 @@ export function ProfilePage({ currentUser, balance, listings, handleEditListing 
                         <span className="text-gray-400 uppercase tracking-wider">ID: {listing.id}</span>
                       </div>
                     </div>
-                    <button 
-                      onClick={() => handleEditListing(listing)}
+                    {isOwnProfile && <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleEditListing(listing)
+                      }}
                       className="w-full sm:w-auto px-5 py-3 bg-white border-2 border-gray-200 text-gray-900 font-extrabold text-sm rounded-xl hover:bg-black hover:border-black hover:text-white transition-all shadow-sm flex items-center justify-center gap-2 active:scale-95 group-hover:bg-gray-50"
                     >
                       <Edit className="w-4 h-4" />
                       Изменить
-                    </button>
+                    </button>}
                   </motion.div>
                 ))}
                 </AnimatePresence>
@@ -413,7 +525,7 @@ export function ProfilePage({ currentUser, balance, listings, handleEditListing 
               </select>
             </div>
 
-            <div className="mb-8 p-5 bg-gray-50 rounded-2xl border border-gray-100">
+            {canReviewThisProfile && <div className="mb-8 p-5 bg-gray-50 rounded-2xl border border-gray-100">
               <h3 className="font-extrabold text-gray-900 text-sm mb-3 uppercase tracking-wider">Оставить отзыв</h3>
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-1.5 p-1">
@@ -430,14 +542,15 @@ export function ProfilePage({ currentUser, balance, listings, handleEditListing 
                   <button 
                     type="button" 
                     onClick={handleAddReview}
-                    disabled={!newReviewText.trim()}
+                    disabled={!newReviewText.trim() || !currentUser}
                     className="px-6 py-2.5 bg-black text-white font-extrabold text-sm rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Отправить отзыв
                   </button>
                 </div>
+                {!currentUser && <p className="text-xs text-gray-500">Чтобы оставить отзыв, войдите в аккаунт.</p>}
               </div>
-            </div>
+            </div>}
 
             {sortedReviews.length === 0 ? (
               <div className="text-center py-8 text-gray-400 font-medium">Отзывов пока нет. Будьте первым!</div>
@@ -459,7 +572,13 @@ export function ProfilePage({ currentUser, balance, listings, handleEditListing 
                             {r.author[0]}
                           </div>
                           <div>
-                            <div className="font-bold text-gray-900 text-sm">{r.author}</div>
+                            <button
+                              type="button"
+                              onClick={() => openUserProfile(r.author)}
+                              className="font-bold text-gray-900 text-sm hover:text-black"
+                            >
+                              {r.author}
+                            </button>
                             <div className="text-xs text-gray-400 mt-0.5">{new Date(r.date).toLocaleDateString('ru-RU')}</div>
                           </div>
                         </div>

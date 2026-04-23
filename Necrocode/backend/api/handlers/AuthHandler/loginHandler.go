@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"Necrocode/api/models"
 
@@ -25,17 +26,21 @@ func (h Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	const query = `
-		SELECT id, login, COALESCE(email, ''), display_name, created_at, password_hash
+		SELECT id, COALESCE(public_id, ''), login, COALESCE(email, ''), display_name, COALESCE(avatar_data_url, ''), birth_date, created_at, password_hash
 		FROM users
 		WHERE login = $1
 	`
 
 	var user models.User
+	var birthDate sql.NullTime
 	if err := h.DB.QueryRow(query, req.Login).Scan(
 		&user.ID,
+		&user.PublicID,
 		&user.Login,
 		&user.Email,
 		&user.DisplayName,
+		&user.AvatarDataURL,
+		&birthDate,
 		&user.CreatedAt,
 		&user.PasswordHash,
 	); err != nil {
@@ -45,6 +50,10 @@ func (h Handler) Login(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSONError(w, http.StatusInternalServerError, "failed to get user")
 		return
+	}
+
+	if birthDate.Valid {
+		user.BirthDate = birthDate.Time.In(time.UTC).Format("2006-01-02")
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {

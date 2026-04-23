@@ -5,6 +5,7 @@ import {
   Bell,
   LogOut,
   Plus,
+  Settings,
   Search,
   ShoppingCart,
   Wallet,
@@ -14,6 +15,7 @@ import {
   Info
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import { HomePage } from './pages/HomePage'
 import { CatalogPage } from './pages/CatalogPage'
@@ -24,6 +26,7 @@ import { WithdrawPage } from './pages/WithdrawPage'
 import { SellPage } from './pages/SellPage'
 import { HelpPage, AboutPage, ContactModal } from './pages/InfoPages'
 import { RegisterPage, LoginPage, ProfilePage } from './pages/AuthPages'
+import { SettingsPage } from './pages/SettingsPage'
 import type { Page, User, AuthResponse, Listing, CartItem, DeliveryMode, AppNotification } from './types'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api'
@@ -61,11 +64,45 @@ function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isWalletOpen, setIsWalletOpen] = useState(false)
   const [isContactOpen, setIsContactOpen] = useState(false)
-  const [currentPage, setCurrentPage] = useState<Page>('home')
-  const [selectedListingId, setSelectedListingId] = useState<number | null>(null)
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  const currentPage = useMemo<Page>(() => {
+    const pathname = location.pathname.toLowerCase()
+
+    if (pathname === '/' || pathname === '/home') return 'home'
+    if (pathname === '/catalog') return 'catalog'
+    if (pathname === '/cart') return 'cart'
+    if (pathname === '/topup') return 'topup'
+    if (pathname === '/withdraw') return 'withdraw'
+    if (pathname === '/sell') return 'sell'
+    if (pathname === '/help') return 'help'
+    if (pathname === '/about') return 'about'
+    if (pathname === '/login') return 'login'
+    if (pathname === '/register') return 'register'
+    if (pathname === '/profile' || pathname.startsWith('/profile/')) return 'profile'
+    if (pathname === '/settings') return 'settings'
+    if (pathname.startsWith('/listing/')) return 'listing'
+
+    return 'home'
+  }, [location.pathname])
+
+  const selectedListingId = useMemo(() => {
+    if (currentPage !== 'listing') return null
+    const rawId = location.pathname.split('/')[2]
+    const id = Number(rawId)
+    return Number.isFinite(id) ? id : null
+  }, [currentPage, location.pathname])
+
+  const viewedProfilePublicId = useMemo(() => {
+    if (currentPage !== 'profile') return ''
+    const raw = location.pathname.split('/')[2] ?? ''
+    return decodeURIComponent(raw).trim()
+  }, [currentPage, location.pathname])
 
   const [accessToken, setAccessToken] = useState<string | null>(localStorage.getItem('accessToken'))
   const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [profileUser, setProfileUser] = useState<User | null>(null)
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
@@ -128,6 +165,7 @@ function App() {
 
   const imageInputRef = useRef<HTMLInputElement>(null)
   const codeFileInputRef = useRef<HTMLInputElement>(null)
+  const userPublicIdByLoginRef = useRef<Record<string, string>>({})
 
   const [loginForm, setLoginForm] = useState({ login: '', password: '' })
   const [registerForm, setRegisterForm] = useState({ login: '', email: '', displayName: '', password: '' })
@@ -308,6 +346,64 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id, accessToken])
 
+  const ownProfilePath = (user?: User | null) => {
+    if (user?.publicId) return `/profile/${user.publicId}`
+    return '/profile'
+  }
+
+  useEffect(() => {
+    if (currentPage !== 'profile') {
+      setProfileUser(null)
+      return
+    }
+
+    if (!viewedProfilePublicId) {
+      if (currentUser?.publicId) {
+        navigate(ownProfilePath(currentUser), { replace: true })
+      } else {
+        setProfileUser(currentUser)
+      }
+      return
+    }
+
+    if (currentUser?.publicId === viewedProfilePublicId) {
+      setProfileUser(currentUser)
+      return
+    }
+
+    const loadProfileByPublicID = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/users/${encodeURIComponent(viewedProfilePublicId)}`, {
+          credentials: 'include',
+        })
+
+        if (!res.ok) {
+          if (res.status === 404) {
+            setError('Пользователь с таким ID не найден.')
+            setProfileUser(null)
+            return
+          }
+          throw new Error('failed to load user profile')
+        }
+
+        const user = (await res.json()) as User
+        setProfileUser(user)
+      } catch {
+        setError('Не удалось загрузить профиль пользователя.')
+        setProfileUser(null)
+      }
+    }
+
+    loadProfileByPublicID()
+  }, [currentPage, viewedProfilePublicId, currentUser, navigate])
+
+  useEffect(() => {
+    if (currentPage === 'settings' && !currentUser) {
+      setError('Чтобы открыть настройки, войдите в аккаунт.')
+      navigate('/login')
+    }
+  }, [currentPage, currentUser, navigate])
+
   const handleRegister = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
@@ -328,7 +424,7 @@ function App() {
 
       const data = (await res.json()) as AuthResponse
       saveSession(data)
-      setCurrentPage('profile')
+      navigate(ownProfilePath(data.user))
     } catch {
       setError('Сервер недоступен. Проверьте, что стек запущен, и попробуйте снова.')
     }
@@ -354,7 +450,7 @@ function App() {
 
       const data = (await res.json()) as AuthResponse
       saveSession(data)
-      setCurrentPage('profile')
+      navigate(ownProfilePath(data.user))
     } catch {
       setError('Сервер недоступен. Проверьте, что стек запущен, и попробуйте снова.')
     }
@@ -372,7 +468,7 @@ function App() {
       deliveryMode: listing.deliveryMode,
     })
     setSellImagePreviews(listing.imageDataUrls || [])
-    setCurrentPage('sell')
+    navigate('/sell')
   }
 
   const handleLogout = async () => {
@@ -381,12 +477,11 @@ function App() {
       credentials: 'include',
     })
     clearSession()
-    setCurrentPage('home')
+    navigate('/')
   }
 
   const navigateToHome = () => {
-    setCurrentPage('home')
-    setSelectedListingId(null)
+    navigate('/')
     setError('')
     setSuccessMessage('')
   }
@@ -394,7 +489,7 @@ function App() {
   const requireAuth = () => {
     if (currentUser) return true
     setError('Чтобы использовать эту функцию, зарегистрируйтесь или войдите в аккаунт.')
-    setCurrentPage('register')
+    navigate('/register')
     return false
   }
 
@@ -402,7 +497,7 @@ function App() {
     if (!requireAuth()) return
     setError('')
     setSuccessMessage('')
-    setCurrentPage('sell')
+    navigate('/sell')
   }
 
   const saveCartItem = async (listingId: number, qty: number) => {
@@ -472,8 +567,52 @@ function App() {
   }
 
   const openListingPage = (listingId: number) => {
-    setSelectedListingId(listingId)
-    setCurrentPage('listing')
+    navigate(`/listing/${listingId}`)
+  }
+
+  const openUserProfile = async (login: string, knownPublicId?: string) => {
+    const normalizedLogin = login.trim().toLowerCase()
+    if (!normalizedLogin) return
+
+    if (knownPublicId) {
+      navigate(`/profile/${encodeURIComponent(knownPublicId)}`)
+      return
+    }
+
+    if (currentUser?.login.toLowerCase() === normalizedLogin) {
+      navigate(ownProfilePath(currentUser))
+      return
+    }
+
+    const cached = userPublicIdByLoginRef.current[normalizedLogin]
+    if (cached) {
+      navigate(`/profile/${encodeURIComponent(cached)}`)
+      return
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/users/search?q=${encodeURIComponent(login)}`, {
+        credentials: 'include',
+      })
+
+      if (!res.ok) {
+        throw new Error('failed to search user')
+      }
+
+      const payload = (await res.json()) as { users?: Array<{ publicId?: string; login?: string }> }
+      const exactMatch = payload.users?.find((user) => user.login?.toLowerCase() === normalizedLogin)
+      const targetPublicId = exactMatch?.publicId ?? payload.users?.[0]?.publicId
+
+      if (!targetPublicId) {
+        setError('Профиль пользователя не найден.')
+        return
+      }
+
+      userPublicIdByLoginRef.current[normalizedLogin] = targetPublicId
+      navigate(`/profile/${encodeURIComponent(targetPublicId)}`)
+    } catch {
+      setError('Не удалось открыть профиль пользователя.')
+    }
   }
 
   const handleTopup = () => {
@@ -520,7 +659,7 @@ function App() {
     setBalance((prev) => prev - amount)
     setWithdrawDestination('')
     addNotification('Заявка на вывод ' + amount + ' ₽ успешно создана.', 'success')
-    setCurrentPage('home')
+    navigate('/')
   }
 
   const handleDeleteListing = async () => {
@@ -538,7 +677,7 @@ function App() {
       setListings((prev) => prev.filter(l => l.id !== editingListingId));
       addNotification('Анкета удалена', 'success');
       setEditingListingId(null);
-      setCurrentPage('profile');
+      navigate(ownProfilePath(currentUser));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка удаления');
     }
@@ -607,10 +746,33 @@ function App() {
       setCodeFile(null)
       setError('')
       setSuccessMessage('Проект опубликован.')
-      setCurrentPage('home')
+      navigate('/')
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Не удалось опубликовать проект.'
       setError(message)
+    }
+  }
+
+  const handleAccountSettingsUpdate = async (payload: {
+    currentPassword?: string
+    email?: string
+    newPassword?: string
+    displayName?: string
+  }) => {
+    const res = await fetchWithAuth('/me/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+
+    if (!res.ok) {
+      const message = await readApiErrorMessage(res, 'Не удалось обновить настройки аккаунта')
+      throw new Error(message)
+    }
+
+    const data = (await res.json()) as { user?: User }
+    if (data.user) {
+      setCurrentUser(data.user)
     }
   }
 
@@ -629,9 +791,9 @@ function App() {
             </button>
             <nav className="hidden md:flex flex-row items-center gap-6 text-sm font-semibold text-gray-700">
               <button onClick={handleSellOpen} className={currentPage === 'sell' ? 'text-black' : 'hover:text-black transition-colors'}>Продать</button>
-              <button onClick={() => setCurrentPage('catalog')} className={currentPage === 'catalog' ? 'text-black' : 'hover:text-black transition-colors'}>Каталог</button>
-              <button onClick={() => setCurrentPage('help')} className={currentPage === 'help' ? 'text-black' : 'hover:text-black transition-colors'}>Помощь</button>
-              <button onClick={() => setCurrentPage('about')} className={currentPage === 'about' ? 'text-black' : 'hover:text-black transition-colors'}>О нас</button>
+              <button onClick={() => navigate('/catalog')} className={currentPage === 'catalog' ? 'text-black' : 'hover:text-black transition-colors'}>Каталог</button>
+              <button onClick={() => navigate('/help')} className={currentPage === 'help' ? 'text-black' : 'hover:text-black transition-colors'}>Помощь</button>
+              <button onClick={() => navigate('/about')} className={currentPage === 'about' ? 'text-black' : 'hover:text-black transition-colors'}>О нас</button>
             </nav>
           </div>
 
@@ -663,10 +825,10 @@ function App() {
                 {isWalletOpen && (
                   <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 'auto', opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="flex items-center pr-2 sm:pr-3 overflow-hidden gap-2 sm:gap-3 whitespace-nowrap max-w-[72vw] sm:max-w-none">
                     <span className="font-bold text-sm text-gray-900">{balance.toLocaleString('ru-RU')} ₽</span>
-                    <button onClick={() => { setCurrentPage('topup'); setIsWalletOpen(false) }} className="flex items-center gap-1 bg-black text-white text-xs px-2.5 py-1.5 rounded-lg">
+                    <button onClick={() => { navigate('/topup'); setIsWalletOpen(false) }} className="flex items-center gap-1 bg-black text-white text-xs px-2.5 py-1.5 rounded-lg">
                       <Plus className="w-3 h-3" /> <span className="hidden sm:inline">Пополнить</span>
                     </button>
-                    <button onClick={() => { setCurrentPage('withdraw'); setIsWalletOpen(false) }} className="flex items-center gap-1 bg-white text-black border border-gray-300 text-xs px-2.5 py-1.5 rounded-lg">
+                    <button onClick={() => { navigate('/withdraw'); setIsWalletOpen(false) }} className="flex items-center gap-1 bg-white text-black border border-gray-300 text-xs px-2.5 py-1.5 rounded-lg">
                       <ArrowDownToLine className="w-3 h-3" /> <span className="hidden sm:inline">Вывести</span>
                     </button>
                   </motion.div>
@@ -677,7 +839,7 @@ function App() {
               </button>
             </div>
 
-            <button onClick={() => setCurrentPage('cart')} className="relative hover:text-black transition-colors p-1" title="Корзина">
+            <button onClick={() => navigate('/cart')} className="relative hover:text-black transition-colors p-1" title="Корзина">
               <ShoppingCart className="w-5 h-5" />
               {cartCount > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-4 h-4 px-1 rounded-full bg-blue-600 text-white text-[10px] font-bold leading-4 text-center">{cartCount}</span>}
             </button>
@@ -770,30 +932,44 @@ function App() {
               <>
               <div className="hidden sm:flex items-center gap-3 ml-2 border-l pl-4 border-gray-200">
                 <button 
-                  onClick={() => setCurrentPage('profile')}
+                  onClick={() => navigate(ownProfilePath(currentUser))}
                   className="bg-black text-white px-4 py-1.5 rounded-full text-sm font-medium hover:bg-gray-800 transition-colors"
                 >
                   {currentUser.login || 'User'}
+                </button>
+                <button
+                  onClick={() => navigate('/settings')}
+                  className="hover:text-black transition-colors p-1"
+                  title="Настройки"
+                >
+                  <Settings className="w-5 h-5" />
                 </button>
                 <button onClick={handleLogout} className="hover:text-red-500 transition-colors p-1" title="Выйти">
                   <LogOut className="w-5 h-5" />
                 </button>
               </div>
               <button
-                onClick={() => setCurrentPage('profile')}
+                onClick={() => navigate(ownProfilePath(currentUser))}
                 className="sm:hidden h-8 min-w-8 px-2 rounded-full bg-black text-white text-xs font-bold"
                 title="Профиль"
               >
                 {(currentUser.login?.[0] || 'U').toUpperCase()}
               </button>
+              <button
+                onClick={() => navigate('/settings')}
+                className="sm:hidden h-8 min-w-8 px-2 rounded-full border border-gray-300 text-gray-700"
+                title="Настройки"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
               </>
             ) : (
               <>
               <div className="hidden sm:flex items-center gap-3 ml-2 border-l pl-4 border-gray-200">
-                <button onClick={() => setCurrentPage('login')} className="text-sm font-semibold hover:text-black">Войти</button>
-                <button onClick={() => setCurrentPage('register')} className="bg-blue-600 text-white px-4 py-1.5 rounded-full text-sm font-medium hover:bg-blue-700">Регистрация</button>
+                <button onClick={() => navigate('/login')} className="text-sm font-semibold hover:text-black">Войти</button>
+                <button onClick={() => navigate('/register')} className="bg-blue-600 text-white px-4 py-1.5 rounded-full text-sm font-medium hover:bg-blue-700">Регистрация</button>
               </div>
-              <button onClick={() => setCurrentPage('login')} className="sm:hidden text-xs font-semibold rounded-full border border-gray-300 px-3 py-1.5">Войти</button>
+              <button onClick={() => navigate('/login')} className="sm:hidden text-xs font-semibold rounded-full border border-gray-300 px-3 py-1.5">Войти</button>
               </>
             )}
           </div>
@@ -801,8 +977,8 @@ function App() {
           <nav className="md:hidden w-full border-t border-gray-100 pt-2 flex items-center justify-between text-xs font-semibold text-gray-700">
             <button onClick={handleSellOpen} className="hover:text-black transition-colors">Продать</button>
             <button onClick={navigateToHome} className="hover:text-black transition-colors">Каталог</button>
-            <button onClick={() => setCurrentPage('help')} className="hover:text-black transition-colors">Помощь</button>
-            <button onClick={() => setCurrentPage('about')} className="hover:text-black transition-colors">О нас</button>
+            <button onClick={() => navigate('/help')} className="hover:text-black transition-colors">Помощь</button>
+            <button onClick={() => navigate('/about')} className="hover:text-black transition-colors">О нас</button>
           </nav>
         </div>
       </header>
@@ -817,6 +993,9 @@ function App() {
               filteredListings={filteredListings}
               listings={listings}
               openListingPage={openListingPage}
+              openUserProfile={(login) => {
+                void openUserProfile(login)
+              }}
               handleAddToCart={handleAddToCart}
             />
           )}
@@ -825,6 +1004,9 @@ function App() {
             <CatalogPage 
               listings={listings}
               openListingPage={openListingPage}
+              openUserProfile={(login) => {
+                void openUserProfile(login)
+              }}
             />
           )}
 
@@ -833,6 +1015,9 @@ function App() {
               selectedListing={selectedListing}
               handleAddToCart={handleAddToCart}
               navigateToHome={navigateToHome}
+              openUserProfile={(login) => {
+                void openUserProfile(login)
+              }}
             />
           )}
 
@@ -909,7 +1094,27 @@ function App() {
           )}
 
           {currentPage === 'profile' && (
-            <ProfilePage currentUser={currentUser} balance={balance} listings={listings} handleEditListing={handleEditListing} />
+            <ProfilePage
+              currentUser={currentUser}
+              viewedUser={profileUser}
+              isOwnProfile={!!currentUser?.publicId && currentUser.publicId === viewedProfilePublicId}
+              balance={balance}
+              listings={listings}
+              handleEditListing={handleEditListing}
+              openListingPage={openListingPage}
+              openUserProfile={(login) => {
+                void openUserProfile(login)
+              }}
+              onUpdateAccountSettings={handleAccountSettingsUpdate}
+            />
+          )}
+
+          {currentPage === 'settings' && currentUser && (
+            <SettingsPage
+              currentUser={currentUser}
+              onUpdateAccountSettings={handleAccountSettingsUpdate}
+              onAccountUpdated={(user) => setCurrentUser(user)}
+            />
           )}
         </AnimatePresence>
 
@@ -960,7 +1165,7 @@ function App() {
       <footer className="mt-auto border-t border-gray-900 bg-black text-gray-400 py-6 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-6">
-            <h2 className="text-xl font-black text-white tracking-tighter cursor-pointer" onClick={() => setCurrentPage('home')}>
+            <h2 className="text-xl font-black text-white tracking-tighter cursor-pointer" onClick={navigateToHome}>
               NECRO<span className="text-gray-500">CODE</span>
             </h2>
             <p className="text-xs font-semibold text-gray-500 hidden sm:block">
@@ -969,15 +1174,17 @@ function App() {
           </div>
 
           <div className="flex items-center gap-6 text-sm font-medium">
-            <button onClick={() => setCurrentPage('sell')} className="hover:text-white transition-colors">Продать</button>
-            <button onClick={() => setCurrentPage('about')} className="hover:text-white transition-colors">О нас</button>
-            <button onClick={() => setCurrentPage('help')} className="hover:text-white transition-colors">Помощь</button>
+            <button onClick={() => navigate('/sell')} className="hover:text-white transition-colors">Продать</button>
+            <button onClick={() => navigate('/about')} className="hover:text-white transition-colors">О нас</button>
+            <button onClick={() => navigate('/help')} className="hover:text-white transition-colors">Помощь</button>
           </div>
-          
-          <div className="flex items-center gap-2 text-xs font-bold bg-gray-900 px-3 py-1.5 rounded-full border border-gray-800 text-gray-400 hidden lg:flex">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-            Сервера <span className="text-white">ОК</span>
-          </div>
+
+          <a
+            href="mailto:support_team@necrocode.ru"
+            className="text-xs sm:text-sm font-semibold text-gray-400 hover:text-white transition-colors"
+          >
+            support_team@necrocode.ru
+          </a>
         </div>
       </footer>
       )}

@@ -1,7 +1,9 @@
 package authhandler
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -39,8 +41,8 @@ func (h Handler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	const query = `
-		INSERT INTO users (login, email, display_name, password_hash)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO users (public_id, login, email, display_name, password_hash)
+		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, created_at
 	`
 
@@ -48,12 +50,33 @@ func (h Handler) Register(w http.ResponseWriter, r *http.Request) {
 	user.Login = req.Login
 	user.Email = req.Email
 	user.DisplayName = req.DisplayName
-	err = h.DB.QueryRow(query, user.Login, user.Email, user.DisplayName, string(hash)).Scan(&user.ID, &user.CreatedAt)
-	if err != nil {
+
+	for range 5 {
+		user.PublicID, err = generatePublicID()
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "failed to create user")
+			return
+		}
+
+		err = h.DB.QueryRow(query, user.PublicID, user.Login, user.Email, user.DisplayName, string(hash)).Scan(&user.ID, &user.CreatedAt)
+		if err == nil {
+			break
+		}
+
+		if isConstraintViolation(err, "users_public_id_unique_idx") {
+			continue
+		}
+
 		if isUniqueViolation(err) {
 			writeJSONError(w, http.StatusConflict, "login or email already exists")
 			return
 		}
+
+		writeJSONError(w, http.StatusInternalServerError, "failed to create user")
+		return
+	}
+
+	if user.ID == 0 {
 		writeJSONError(w, http.StatusInternalServerError, "failed to create user")
 		return
 	}
@@ -70,6 +93,22 @@ func isUniqueViolation(err error) bool {
 		return pgErr.Code == "23505"
 	}
 	return false
+}
+
+func isConstraintViolation(err error, constraintName string) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505" && pgErr.ConstraintName == constraintName
+	}
+	return false
+}
+
+func generatePublicID() (string, error) {
+	b := make([]byte, 6)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return "nc_" + hex.EncodeToString(b), nil
 }
 
 func writeJSONError(w http.ResponseWriter, status int, message string) {

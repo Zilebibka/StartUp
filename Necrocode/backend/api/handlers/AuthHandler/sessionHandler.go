@@ -27,7 +27,7 @@ func (h Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 	hashedToken := services.HashOpaqueToken(cookie.Value)
 
 	const findQuery = `
-		SELECT rt.id, u.id, u.login, COALESCE(u.email, ''), u.display_name, u.created_at
+		SELECT rt.id, u.id, COALESCE(u.public_id, ''), u.login, COALESCE(u.email, ''), u.display_name, COALESCE(u.avatar_data_url, ''), u.birth_date, u.created_at
 		FROM refresh_tokens rt
 		JOIN users u ON u.id = rt.user_id
 		WHERE rt.token_hash = $1
@@ -38,13 +38,17 @@ func (h Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 	var (
 		refreshTokenID int64
 		user           models.User
+		birthDate      sql.NullTime
 	)
 	if err := h.DB.QueryRow(findQuery, hashedToken).Scan(
 		&refreshTokenID,
 		&user.ID,
+		&user.PublicID,
 		&user.Login,
 		&user.Email,
 		&user.DisplayName,
+		&user.AvatarDataURL,
+		&birthDate,
 		&user.CreatedAt,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -54,6 +58,10 @@ func (h Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSONError(w, http.StatusInternalServerError, "failed to refresh session")
 		return
+	}
+
+	if birthDate.Valid {
+		user.BirthDate = birthDate.Time.In(time.UTC).Format("2006-01-02")
 	}
 
 	tx, err := h.DB.Begin()

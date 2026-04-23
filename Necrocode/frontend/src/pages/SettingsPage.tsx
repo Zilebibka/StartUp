@@ -28,6 +28,8 @@ interface SettingsPageProps {
     displayName?: string
   }) => Promise<void>
   onAccountUpdated: (user: User) => void
+  themeMode: 'light' | 'dark'
+  onThemeModeChange: (mode: 'light' | 'dark') => void
 }
 
 const PRIVACY_KEY_PREFIX = 'privacySettings_'
@@ -51,7 +53,7 @@ const defaultNotificationState: NotificationState = {
 
 const isDataImage = (value: string) => value.startsWith('data:image/')
 
-export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUpdated }: SettingsPageProps) {
+export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUpdated, themeMode, onThemeModeChange }: SettingsPageProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile')
   const [birthDate, setBirthDate] = useState(() => {
     const raw = localStorage.getItem(PROFILE_SETTINGS_KEY_PREFIX + currentUser.login)
@@ -391,6 +393,16 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
                 </div>
                 {avatarError && <p className="mt-2 text-xs text-red-600">{avatarError}</p>}
                 {avatarMessage && <p className="mt-2 text-xs text-emerald-600">{avatarMessage}</p>}
+              </div>
+
+              <div className="rounded-2xl border border-gray-100 bg-gray-50 p-5">
+                <h3 className="text-sm font-extrabold text-gray-800 uppercase tracking-wide mb-3">Тема сайта</h3>
+                <ToggleItem
+                  label="Темная тема на всем сайте"
+                  checked={themeMode === 'dark'}
+                  onChange={(checked) => onThemeModeChange(checked ? 'dark' : 'light')}
+                />
+                <p className="mt-2 text-xs text-gray-500">Переключение применяется сразу ко всем страницам.</p>
               </div>
             </div>
           )}

@@ -201,42 +201,46 @@ export function CatalogPage({ listings, openListingPage, openUserProfile }: Cata
                 animate={{ opacity: 1, scale: 1 }} 
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.2 }}
-                className="flex flex-col rounded-xl border border-gray-200 bg-white overflow-hidden hover:shadow-lg transition-shadow cursor-pointer pb-2"
+                className="flex flex-col rounded-2xl border border-gray-200 bg-white overflow-hidden hover:shadow-xl hover:border-gray-300 transition-all cursor-pointer group"
                 onClick={() => openListingPage(item.id)}
               >
-                <div className="bg-gray-100 h-40 w-full flex items-center justify-center relative overflow-hidden border-b border-gray-100">
+                <div className="bg-gray-100 h-44 w-full flex items-center justify-center relative overflow-hidden border-b border-gray-100">
                    {item.imageDataUrls && item.imageDataUrls.length > 0 ? (
-                      <img src={item.imageDataUrls[0]} alt={item.title} className="absolute inset-0 w-full h-full object-cover" />
+                      <img src={item.imageDataUrls[0]} alt={item.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                    ) : (
-                      <img src="https://images.unsplash.com/photo-1542831371-29b0f74f9713?q=80&w=2070&auto=format&fit=crop" className="absolute inset-0 w-full h-full object-cover opacity-80" alt="Placeholder" />
+                      <img src="https://images.unsplash.com/photo-1542831371-29b0f74f9713?q=80&w=2070&auto=format&fit=crop" className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-500" alt="Placeholder" />
                    )}
+                   <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider text-gray-800 shadow-sm border border-white/20">
+                     {item.category || 'Проект'}
+                   </div>
                 </div>
                 
-                <div className="p-4 flex flex-col flex-1">
-                   <h3 className="font-bold text-gray-900 text-sm leading-snug mb-3 line-clamp-2">
+                <div className="p-5 flex flex-col flex-1">
+                   <h3 className="font-extrabold text-gray-900 text-lg leading-tight mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
                       {item.title}
                    </h3>
-                   <div className="flex items-center justify-between mt-auto mb-3">
-                      <span className="font-medium text-gray-600 text-xs">
-                         {item.price > 0 ? item.price.toLocaleString('ru-RU') + ' ₽' : 'Цена по запросу'}
-                      </span>
-                      <span className="bg-[#D1E7DD] text-[#0F5132] px-2 py-0.5 rounded-full text-[10px] font-bold">
-                         Статус
-                      </span>
-                   </div>
-                   <hr className="border-gray-200 mb-3" />
-                   <p className="text-[11px] text-gray-500 font-medium leading-relaxed">
-                       {item.techStack || 'Стек не указан'}
+                   
+                   <p className="text-xs text-gray-500 font-medium mb-4 line-clamp-1">
+                       {item.techStack || 'Стек технологий не указан'}
                    </p>
-                   <button
-                     onClick={(e) => {
-                       e.stopPropagation()
-                       openUserProfile(item.ownerLogin)
-                     }}
-                     className="mt-2 self-start text-[11px] text-gray-500 hover:text-black"
-                   >
-                     Продавец: {item.ownerLogin}
-                   </button>
+                   
+                   <div className="mt-auto pt-4 border-t border-gray-100 flex items-center justify-between">
+                     <span className="font-extrabold text-gray-900 text-lg">
+                        {item.price > 0 ? item.price.toLocaleString('ru-RU') + ' ₽' : 'По запросу'}
+                     </span>
+                     <button
+                       onClick={(e) => {
+                         e.stopPropagation()
+                         openUserProfile(item.ownerLogin)
+                       }}
+                       className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 hover:text-black transition-colors"
+                     >
+                       <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px] text-gray-600 border border-gray-200">
+                         {item.ownerLogin.charAt(0).toUpperCase()}
+                       </div>
+                       {item.ownerLogin}
+                     </button>
+                   </div>
                 </div>
               </motion.div>
             ))}

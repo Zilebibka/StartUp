@@ -25,9 +25,13 @@ export type Listing = {
   ownerLogin: string
   category: string 
   techStack: string
+  revenue?: string
+  expenses?: string
+  monetizationType?: string
   deliveryMode: DeliveryMode
   projectUrl?: string
   codeFileName?: string
+  codeFileSizeBytes?: number
   imageDataUrls: string[]
   createdAt: string
 }

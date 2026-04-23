@@ -93,6 +93,9 @@ CREATE TABLE IF NOT EXISTS listings (
 	image_data_urls JSONB NOT NULL DEFAULT '[]'::jsonb,
 	category VARCHAR(50) NOT NULL DEFAULT '',
 	tech_stack VARCHAR(255) NOT NULL DEFAULT '',
+	revenue VARCHAR(255),
+	expenses VARCHAR(255),
+	monetization_type VARCHAR(255),
 	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -107,6 +110,10 @@ CREATE INDEX IF NOT EXISTS listings_created_at_idx ON listings(created_at DESC);
 	const listingsMigrationQuery = `
 ALTER TABLE listings ADD COLUMN IF NOT EXISTS category VARCHAR(50) NOT NULL DEFAULT '';
 ALTER TABLE listings ADD COLUMN IF NOT EXISTS tech_stack VARCHAR(255) NOT NULL DEFAULT '';
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS revenue VARCHAR(255);
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS expenses VARCHAR(255);
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS monetization_type VARCHAR(255);
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS code_file_size_bytes BIGINT;
 `
 	if _, err := db.Exec(listingsMigrationQuery); err != nil {
 		return fmt.Errorf("migrate listings table: %w", err)

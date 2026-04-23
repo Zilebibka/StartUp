@@ -18,30 +18,38 @@ type Handler struct {
 }
 
 type listingDTO struct {
-        ID           int64    `json:"id"`
-        Title        string   `json:"title"`
-        Description  string   `json:"description"`
-        Price        int64    `json:"price"`
-        OwnerLogin   string   `json:"ownerLogin"`
-        Category     string   `json:"category"`
-        TechStack    string   `json:"techStack"`
-        DeliveryMode string   `json:"deliveryMode"`
-        ProjectURL   *string  `json:"projectUrl,omitempty"`
-        CodeFileName *string  `json:"codeFileName,omitempty"`
-        ImageDataURL []string `json:"imageDataUrls"`
-        CreatedAt    string   `json:"createdAt"`
+        ID               int64    `json:"id"`
+        Title            string   `json:"title"`
+        Description      string   `json:"description"`
+        Price            int64    `json:"price"`
+        OwnerLogin       string   `json:"ownerLogin"`
+        Category         string   `json:"category"`
+        TechStack        string   `json:"techStack"`
+        Revenue          *string  `json:"revenue,omitempty"`
+        Expenses         *string  `json:"expenses,omitempty"`
+        MonetizationType *string  `json:"monetizationType,omitempty"`
+        DeliveryMode     string   `json:"deliveryMode"`
+        ProjectURL       *string  `json:"projectUrl,omitempty"`
+        CodeFileName     *string  `json:"codeFileName,omitempty"`
+        CodeFileSizeBytes *int64  `json:"codeFileSizeBytes,omitempty"`
+        ImageDataURL     []string `json:"imageDataUrls"`
+        CreatedAt        string   `json:"createdAt"`
 }
 
 type createListingRequest struct {
-        Title        string   `json:"title"`
-        Description  string   `json:"description"`
-        Price        int64    `json:"price"`
-        Category     string   `json:"category"`
-        TechStack    string   `json:"techStack"`
-        DeliveryMode string   `json:"deliveryMode"`
-        ProjectURL   string   `json:"projectUrl"`
-        CodeFileName string   `json:"codeFileName"`
-        ImageDataURL []string `json:"imageDataUrls"`
+        Title            string   `json:"title"`
+        Description      string   `json:"description"`
+        Price            int64    `json:"price"`
+        Category         string   `json:"category"`
+        TechStack        string   `json:"techStack"`
+        Revenue          string   `json:"revenue"`
+        Expenses         string   `json:"expenses"`
+        MonetizationType string   `json:"monetizationType"`
+        DeliveryMode     string   `json:"deliveryMode"`
+        ProjectURL       string   `json:"projectUrl"`
+        CodeFileName     string   `json:"codeFileName"`
+        CodeFileSizeBytes int64   `json:"codeFileSizeBytes"`
+        ImageDataURL     []string `json:"imageDataUrls"`
 }
 
 type cartItemDTO struct {
@@ -57,7 +65,8 @@ type setCartItemRequest struct {
 func (h Handler) ListListings(w http.ResponseWriter, r *http.Request) {
         const query = `
                 SELECT l.id, l.title, l.description, l.price, u.login, l.delivery_mode,
-                        l.project_url, l.code_file_name, l.image_data_urls, l.category, l.tech_stack, l.created_at
+                        l.project_url, l.code_file_name, l.image_data_urls, l.category, l.tech_stack,
+                        NULLIF(l.revenue, ''), NULLIF(l.expenses, ''), NULLIF(l.monetization_type, ''), l.code_file_size_bytes, l.created_at
                 FROM listings l
                 JOIN users u ON u.id = l.seller_user_id
                 ORDER BY l.created_at DESC
@@ -93,7 +102,8 @@ func (h Handler) GetListingByID(w http.ResponseWriter, r *http.Request) {
 
         const query = `
                 SELECT l.id, l.title, l.description, l.price, u.login, l.delivery_mode,
-                        l.project_url, l.code_file_name, l.image_data_urls, l.category, l.tech_stack, l.created_at
+                        l.project_url, l.code_file_name, l.image_data_urls, l.category, l.tech_stack,
+                        NULLIF(l.revenue, ''), NULLIF(l.expenses, ''), NULLIF(l.monetization_type, ''), l.code_file_size_bytes, l.created_at
                 FROM listings l
                 JOIN users u ON u.id = l.seller_user_id
                 WHERE l.id = $1
@@ -131,6 +141,9 @@ func (h Handler) CreateListing(w http.ResponseWriter, r *http.Request) {
         req.Description = strings.TrimSpace(req.Description)
         req.Category = strings.TrimSpace(req.Category)
         req.TechStack = strings.TrimSpace(req.TechStack)
+        req.Revenue = strings.TrimSpace(req.Revenue)
+        req.Expenses = strings.TrimSpace(req.Expenses)
+        req.MonetizationType = strings.TrimSpace(req.MonetizationType)
         req.ProjectURL = strings.TrimSpace(req.ProjectURL)
         req.CodeFileName = strings.TrimSpace(req.CodeFileName)
 
@@ -148,6 +161,10 @@ func (h Handler) CreateListing(w http.ResponseWriter, r *http.Request) {
                 return
         }
 
+        if req.CodeFileName == "" || req.CodeFileSizeBytes < 0 {
+                req.CodeFileSizeBytes = 0
+        }
+
         if len(req.ImageDataURL) > 5 {
                 req.ImageDataURL = req.ImageDataURL[:5]
         }
@@ -157,8 +174,8 @@ func (h Handler) CreateListing(w http.ResponseWriter, r *http.Request) {
         const insertQuery = `
                 INSERT INTO listings (
                         seller_user_id, title, description, price, delivery_mode,
-                        project_url, code_file_name, image_data_urls, category, tech_stack
-                ) VALUES ($1, $2, $3, $4, $5, NULLIF($6, ''), NULLIF($7, ''), $8::jsonb, $9, $10)
+                        project_url, code_file_name, image_data_urls, category, tech_stack, revenue, expenses, monetization_type, code_file_size_bytes
+                ) VALUES ($1, $2, $3, $4, $5, NULLIF($6, ''), NULLIF($7, ''), $8::jsonb, $9, $10, $11, $12, $13, NULLIF($14, 0))
                 RETURNING id, created_at
         `
 
@@ -178,6 +195,10 @@ func (h Handler) CreateListing(w http.ResponseWriter, r *http.Request) {
                 string(imagesJSON),
                 req.Category,
                 req.TechStack,
+                req.Revenue,
+                req.Expenses,
+                req.MonetizationType,
+                req.CodeFileSizeBytes,
         ).Scan(&listingID, &createdAt); err != nil {
                 writeError(w, http.StatusInternalServerError, "failed to create listing")
                 return
@@ -190,22 +211,34 @@ func (h Handler) CreateListing(w http.ResponseWriter, r *http.Request) {
         }
 
         result := listingDTO{
-                ID:           listingID,
-                Title:        req.Title,
-                Description:  req.Description,
-                Price:        req.Price,
-                OwnerLogin:   ownerLogin,
-                Category:     req.Category,
-                TechStack:    req.TechStack,
-                DeliveryMode: req.DeliveryMode,
-                ImageDataURL: req.ImageDataURL,
-                CreatedAt:    createdAt.UTC().Format(time.RFC3339),
+                ID:               listingID,
+                Title:            req.Title,
+                Description:      req.Description,
+                Price:            req.Price,
+                OwnerLogin:       ownerLogin,
+                Category:         req.Category,
+                TechStack:        req.TechStack,
+                DeliveryMode:     req.DeliveryMode,
+                ImageDataURL:     req.ImageDataURL,
+                CreatedAt:        createdAt.UTC().Format(time.RFC3339),
         }
         if req.ProjectURL != "" {
                 result.ProjectURL = &req.ProjectURL
         }
         if req.CodeFileName != "" {
                 result.CodeFileName = &req.CodeFileName
+        }
+        if req.CodeFileSizeBytes > 0 {
+                result.CodeFileSizeBytes = &req.CodeFileSizeBytes
+        }
+        if req.Revenue != "" {
+                result.Revenue = &req.Revenue
+        }
+        if req.Expenses != "" {
+                result.Expenses = &req.Expenses
+        }
+        if req.MonetizationType != "" {
+                result.MonetizationType = &req.MonetizationType
         }
 
         w.Header().Set("Content-Type", "application/json")
@@ -268,6 +301,9 @@ func (h Handler) UpdateListing(w http.ResponseWriter, r *http.Request) {
         req.CodeFileName = strings.TrimSpace(req.CodeFileName)
         req.Category = strings.TrimSpace(req.Category)
         req.TechStack = strings.TrimSpace(req.TechStack)
+        req.Revenue = strings.TrimSpace(req.Revenue)
+        req.Expenses = strings.TrimSpace(req.Expenses)
+        req.MonetizationType = strings.TrimSpace(req.MonetizationType)
 
         if req.Title == "" || req.Description == "" || req.Price <= 0 || req.Category == "" || req.TechStack == "" {
                 writeError(w, http.StatusBadRequest, "title, description, price, category, techStack are required")
@@ -276,6 +312,10 @@ func (h Handler) UpdateListing(w http.ResponseWriter, r *http.Request) {
 
         if req.DeliveryMode != "auto" {
                 req.DeliveryMode = "manual"
+        }
+
+        if req.CodeFileName == "" || req.CodeFileSizeBytes < 0 {
+                req.CodeFileSizeBytes = 0
         }
 
         if len(req.ImageDataURL) > 5 {
@@ -287,7 +327,9 @@ func (h Handler) UpdateListing(w http.ResponseWriter, r *http.Request) {
         const updateQuery = `
                 UPDATE listings SET 
                         title = $1, description = $2, price = $3, delivery_mode = $4,
-                        project_url = NULLIF($5, ''), code_file_name = NULLIF($6, ''), image_data_urls = $7::jsonb, category = $10, tech_stack = $11
+                        project_url = NULLIF($5, ''), code_file_name = NULLIF($6, ''), image_data_urls = $7::jsonb, category = $10, tech_stack = $11,
+                        revenue = $12, expenses = $13, monetization_type = $14,
+                        code_file_size_bytes = CASE WHEN NULLIF($6, '') IS NULL THEN NULL ELSE NULLIF($15, 0) END
                 WHERE id = $8 AND seller_user_id = $9
                 RETURNING id, created_at
         `
@@ -306,6 +348,10 @@ func (h Handler) UpdateListing(w http.ResponseWriter, r *http.Request) {
                 userID,
                 req.Category,
                 req.TechStack,
+                req.Revenue,
+                req.Expenses,
+                req.MonetizationType,
+                req.CodeFileSizeBytes,
         ).Scan(&listingID, &createdAt); err != nil {
                 if err == sql.ErrNoRows {
                         writeError(w, http.StatusForbidden, "not allowed or listing not found")
@@ -329,6 +375,10 @@ func (h Handler) UpdateListing(w http.ResponseWriter, r *http.Request) {
         if req.CodeFileName != "" {
                 codeFileNamePtr = &req.CodeFileName
         }
+        var codeFileSizePtr *int64
+        if req.CodeFileName != "" && req.CodeFileSizeBytes > 0 {
+                codeFileSizePtr = &req.CodeFileSizeBytes
+        }
 
         result := listingDTO{
                 ID:           listingID,
@@ -341,8 +391,18 @@ func (h Handler) UpdateListing(w http.ResponseWriter, r *http.Request) {
                 DeliveryMode: req.DeliveryMode,
                 ProjectURL:   projectUrlPtr,
                 CodeFileName: codeFileNamePtr,
+                CodeFileSizeBytes: codeFileSizePtr,
                 ImageDataURL: req.ImageDataURL,
                 CreatedAt:    createdAt.Format(time.RFC3339),
+        }
+        if req.Revenue != "" {
+                result.Revenue = &req.Revenue
+        }
+        if req.Expenses != "" {
+                result.Expenses = &req.Expenses
+        }
+        if req.MonetizationType != "" {
+                result.MonetizationType = &req.MonetizationType
         }
 
         w.Header().Set("Content-Type", "application/json")
@@ -510,11 +570,15 @@ type listingScanner interface {
 
 func scanListing(scanner listingScanner) (listingDTO, error) {
         var (
-                item       listingDTO
-                projectURL sql.NullString
-                codeFile   sql.NullString
-                imagesRaw  []byte
-                createdAt  time.Time
+                item             listingDTO
+                projectURL       sql.NullString
+                codeFile         sql.NullString
+                revenue          sql.NullString
+                expenses         sql.NullString
+                monetizationType sql.NullString
+                codeFileSize     sql.NullInt64
+                imagesRaw        []byte
+                createdAt        time.Time
         )
 
         err := scanner.Scan(
@@ -529,6 +593,10 @@ func scanListing(scanner listingScanner) (listingDTO, error) {
                 &imagesRaw,
                 &item.Category,
                 &item.TechStack,
+                &revenue,
+                &expenses,
+                &monetizationType,
+                &codeFileSize,
                 &createdAt,
         )
         if err != nil {
@@ -541,6 +609,18 @@ func scanListing(scanner listingScanner) (listingDTO, error) {
         }
         if codeFile.Valid {
                 item.CodeFileName = &codeFile.String
+        }
+        if revenue.Valid {
+                item.Revenue = &revenue.String
+        }
+        if expenses.Valid {
+                item.Expenses = &expenses.String
+        }
+        if monetizationType.Valid {
+                item.MonetizationType = &monetizationType.String
+        }
+        if codeFileSize.Valid {
+                item.CodeFileSizeBytes = &codeFileSize.Int64
         }
         if len(imagesRaw) == 0 {
                 item.ImageDataURL = []string{}

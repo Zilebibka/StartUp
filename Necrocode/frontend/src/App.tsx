@@ -31,6 +31,7 @@ import type { Page, User, AuthResponse, Listing, CartItem, DeliveryMode, AppNoti
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api'
 const DEFAULT_LISTINGS: Listing[] = []
+const THEME_STORAGE_KEY = 'siteThemeMode'
 
 const toDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -106,9 +107,14 @@ function App() {
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [themeMode, setThemeMode] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY)
+    return saved === 'dark' ? 'dark' : 'light'
+  })
   
   const [notifications, setNotifications] = useState<AppNotification[]>([])
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
+  const notificationAudioRef = useRef<HTMLAudioElement | null>(null)
 
   const addNotification = (message: string, type: 'success' | 'error' | 'info') => {
     const newNotif: AppNotification = {
@@ -122,12 +128,14 @@ function App() {
     
     // Play sound on new notification
     try {
-      const audio = new Audio('data:audio/mp3;base64,//OExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//OExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq')
-      audio.volume = 0.2
-      // A quick silent base64 for now, usually you'd want a real sound file url or a proper bell base64 here
-      // Replace with actual short bell sound data if needed
-      audio.play().catch(() => {})
-    } catch (e) {}
+      const audio = notificationAudioRef.current
+      if (!audio) return
+      audio.currentTime = 0
+      const playback = audio.play()
+      if (playback) {
+        void playback.catch(() => {})
+      }
+    } catch {}
   }
 
   const markNotificationAsRead = (id: number) => {
@@ -155,6 +163,9 @@ function App() {
     price: '',
     category: 'apps',
     techStack: '',
+    revenue: '',
+    expenses: '',
+    monetizationType: '',
     projectUrl: '',
     deliveryMode: 'auto' as DeliveryMode,
   })
@@ -196,6 +207,48 @@ function App() {
       }, 0),
     [cart, listings],
   )
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('theme-dark', themeMode === 'dark')
+    localStorage.setItem(THEME_STORAGE_KEY, themeMode)
+  }, [themeMode])
+
+  useEffect(() => {
+    const audio = new Audio('/sounds/notification.mp3')
+    audio.preload = 'auto'
+    audio.volume = 0.28
+    notificationAudioRef.current = audio
+
+    const unlockAudio = () => {
+      const activeAudio = notificationAudioRef.current
+      if (!activeAudio) return
+      activeAudio.muted = true
+      const playback = activeAudio.play()
+      if (playback) {
+        void playback
+          .then(() => {
+            activeAudio.pause()
+            activeAudio.currentTime = 0
+            activeAudio.muted = false
+          })
+          .catch(() => {
+            activeAudio.muted = false
+          })
+      } else {
+        activeAudio.muted = false
+      }
+    }
+
+    window.addEventListener('pointerdown', unlockAudio, { once: true })
+    window.addEventListener('keydown', unlockAudio, { once: true })
+
+    return () => {
+      window.removeEventListener('pointerdown', unlockAudio)
+      window.removeEventListener('keydown', unlockAudio)
+      audio.pause()
+      notificationAudioRef.current = null
+    }
+  }, [])
 
   useEffect(() => {
     const loadListings = async () => {
@@ -464,6 +517,9 @@ function App() {
       price: listing.price.toString(),
       category: listing.category || 'apps',
       techStack: listing.techStack || '',
+      revenue: listing.revenue || '',
+      expenses: listing.expenses || '',
+      monetizationType: listing.monetizationType || '',
       projectUrl: listing.projectUrl || '',
       deliveryMode: listing.deliveryMode,
     })
@@ -700,6 +756,9 @@ function App() {
 
     try {
       const images = await Promise.all(sellImages.map((file) => toDataUrl(file)))
+      const editingListing = editingListingId ? listings.find((entry) => entry.id === editingListingId) : null
+      const effectiveCodeFileName = codeFile?.name ?? editingListing?.codeFileName ?? ''
+      const effectiveCodeFileSizeBytes = codeFile?.size ?? editingListing?.codeFileSizeBytes ?? 0
 
       const payload = {
         title: sellForm.title.trim(),
@@ -707,9 +766,13 @@ function App() {
         price,
         category: sellForm.category,
         techStack: sellForm.techStack.trim(),
+        revenue: sellForm.revenue.trim(),
+        expenses: sellForm.expenses.trim(),
+        monetizationType: sellForm.monetizationType.trim(),
         deliveryMode: sellForm.deliveryMode,
         projectUrl: sellForm.projectUrl.trim(),
-        codeFileName: codeFile?.name,
+        codeFileName: effectiveCodeFileName,
+        codeFileSizeBytes: effectiveCodeFileSizeBytes,
         imageDataUrls: images,
       }
 
@@ -740,7 +803,7 @@ function App() {
         addNotification('Анкета успешно создана.', 'success')
       }
 
-      setSellForm({ title: '', description: '', price: '', category: 'apps', techStack: '', projectUrl: '', deliveryMode: 'auto' })
+      setSellForm({ title: '', description: '', price: '', category: 'apps', techStack: '', revenue: '', expenses: '', monetizationType: '', projectUrl: '', deliveryMode: 'auto' })
       setEditingListingId(null)
       setSellImages([])
       setCodeFile(null)
@@ -1113,6 +1176,8 @@ function App() {
               currentUser={currentUser}
               onUpdateAccountSettings={handleAccountSettingsUpdate}
               onAccountUpdated={(user) => setCurrentUser(user)}
+              themeMode={themeMode}
+              onThemeModeChange={setThemeMode}
             />
           )}
         </AnimatePresence>

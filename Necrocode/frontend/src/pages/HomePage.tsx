@@ -88,8 +88,7 @@ export function HomePage({ filteredListings, openListingPage, handleAddToCart }:
                  </div>
                  <hr className="border-gray-200 mt-2 mb-3" />
                  <p className="text-xs text-gray-500 font-medium leading-relaxed">
-                   PHP 5.3, MySQL, HTML4,<br/>
-                   Tech stack: {["HML4", "VanillaJS", "jQuery"][i % 3]}
+                     {item.techStack || 'Стек не указан'}
                  </p>
                  <div className="mt-4 flex gap-2">
                     <button 

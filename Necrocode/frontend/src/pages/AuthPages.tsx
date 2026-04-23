@@ -1,5 +1,5 @@
 ﻿import { motion, AnimatePresence } from 'framer-motion'
-import { Edit, Calendar, ChevronLeft, ChevronRight, ImagePlus, Wallet, Mail, Tag, BadgeCheck } from 'lucide-react'
+import { Edit, Calendar, ChevronLeft, ChevronRight, ImagePlus, Wallet, Mail, Tag, BadgeCheck, Star } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import type { FormEvent } from 'react'
 import type { Listing, User } from '../types'
@@ -177,6 +177,11 @@ export function ProfilePage({ currentUser, balance, listings, handleEditListing 
   const [dob, setDob] = useState("");
   const [avatar, setAvatar] = useState(EMOJI_AVATARS[0]);
 
+  const [reviews, setReviews] = useState<{id: number, text: string, rating: number, author: string, date: string}[]>([]);
+  const [newReviewText, setNewReviewText] = useState("");
+  const [newReviewRating, setNewReviewRating] = useState(5);
+  const [reviewSort, setReviewSort] = useState("new");
+
   useEffect(() => {
     if (currentUser?.login) {
       const savedSettings = localStorage.getItem("profileSettings_" + currentUser.login);
@@ -187,8 +192,51 @@ export function ProfilePage({ currentUser, balance, listings, handleEditListing 
           if (parsed.avatar) setAvatar(parsed.avatar);
         } catch(e) {}
       }
+
+      const savedReviews = localStorage.getItem("profileReviews_" + currentUser.login);
+      if (savedReviews) {
+        try {
+          setReviews(JSON.parse(savedReviews));
+        } catch(e) {}
+      }
     }
   }, [currentUser]);
+
+  const handleAddReview = () => {
+    if (!newReviewText.trim() || !currentUser?.login) return;
+    const newR = {
+      id: Date.now(),
+      text: newReviewText,
+      rating: newReviewRating,
+      author: currentUser.login,
+      date: new Date().toISOString()
+    };
+    const updated = [newR, ...reviews];
+    setReviews(updated);
+    setNewReviewText("");
+    setNewReviewRating(5);
+    localStorage.setItem("profileReviews_" + currentUser.login, JSON.stringify(updated));
+  };
+
+  const avgRating = reviews.length > 0 ? (reviews.reduce((acc, current) => acc + current.rating, 0) / reviews.length).toFixed(1) : "0.0";
+
+  const renderStars = (rating: number, onClick?: (rating: number) => void) => {
+    return Array.from({length: 5}).map((_, i) => (
+      <Star 
+        key={i} 
+        className={`w-4 h-4 ${i < rating ? "text-yellow-400 fill-yellow-400" : "text-gray-200 fill-gray-200"} ${onClick ? "cursor-pointer hover:scale-110 transition-transform" : ""}`} 
+        onClick={() => onClick && onClick(i + 1)}
+      />
+    ));
+  };
+
+  const sortedReviews = [...reviews].sort((a, b) => {
+    if (reviewSort === 'new') return new Date(b.date).getTime() - new Date(a.date).getTime();
+    if (reviewSort === 'old') return new Date(a.date).getTime() - new Date(b.date).getTime();
+    if (reviewSort === 'positive') return b.rating - a.rating;
+    if (reviewSort === 'negative') return a.rating - b.rating;
+    return 0;
+  });
 
   const saveSettings = (newDob: string, newAvatar: string) => {
     if (currentUser?.login) {
@@ -204,11 +252,11 @@ export function ProfilePage({ currentUser, balance, listings, handleEditListing 
         
         {/* Left Column: User Card */}
         <div className="w-full md:w-[360px] flex flex-col gap-6">
-          <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-xl shadow-gray-200/20 flex flex-col items-center text-center relative overflow-hidden group">
+          <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-xl shadow-gray-200/20 flex flex-col items-center text-center relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-white -z-10"></div>
             <div className="absolute -right-8 -top-8 w-40 h-40 bg-blue-50/50 rounded-full blur-3xl pointer-events-none"></div>
 
-            <div className="relative mb-5 z-10 w-28 h-28 rounded-full border-4 border-white shadow-xl shadow-gray-200 flex items-center justify-center text-5xl bg-white cursor-pointer overflow-hidden transform group-hover:scale-105 transition-transform duration-300">
+            <div className="relative mb-5 z-10 w-28 h-28 rounded-full border-4 border-white shadow-xl shadow-gray-200 flex items-center justify-center text-5xl bg-white cursor-pointer overflow-hidden transform hover:scale-105 transition-transform duration-300 group">
               <motion.span 
                 key={avatar} 
                 initial={{ scale: 0.5, rotate: -20, opacity: 0 }} 
@@ -230,6 +278,11 @@ export function ProfilePage({ currentUser, balance, listings, handleEditListing 
             </div>
             
             <h2 className="text-2xl font-black text-gray-900 mb-1 z-10">{currentUser.displayName || currentUser.login}</h2>
+            <div className="flex items-center justify-center gap-1 mb-2 z-10">
+              <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+              <span className="font-bold text-gray-900">{avgRating}</span>
+              <span className="text-gray-400 text-xs ml-1">({reviews.length} отзывов)</span>
+            </div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700/80 rounded-full text-xs font-bold mb-6 z-10">
               <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.8)]"></span> Online
             </div>
@@ -330,6 +383,93 @@ export function ProfilePage({ currentUser, balance, listings, handleEditListing 
                     </button>
                   </motion.div>
                 ))}
+                </AnimatePresence>
+              </div>
+            )}
+          </div>
+
+          {/* Reviews Section */}
+          <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-xl shadow-gray-200/20 flex-1 flex flex-col">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 pb-4 border-b border-gray-100 gap-4">
+              <div>
+                <h2 className="text-2xl font-extrabold text-gray-900">Отзывы покупателей</h2>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="font-bold text-gray-800 text-lg">{avgRating}</span>
+                  <div className="flex gap-0.5">
+                    {renderStars(Math.round(Number(avgRating)))}
+                  </div>
+                  <span className="text-gray-400 text-xs font-bold uppercase tracking-wider ml-1">{reviews.length} ОЦЕНОК</span>
+                </div>
+              </div>
+              <select 
+                value={reviewSort}
+                onChange={(e) => setReviewSort(e.target.value)}
+                className="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-black focus:border-black block w-auto p-2.5 font-bold outline-none cursor-pointer"
+              >
+                <option value="new">Сначала новые</option>
+                <option value="old">Сначала старые</option>
+                <option value="positive">Сначала положительные</option>
+                <option value="negative">Сначала отрицательные</option>
+              </select>
+            </div>
+
+            <div className="mb-8 p-5 bg-gray-50 rounded-2xl border border-gray-100">
+              <h3 className="font-extrabold text-gray-900 text-sm mb-3 uppercase tracking-wider">Оставить отзыв</h3>
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-1.5 p-1">
+                  {renderStars(newReviewRating, setNewReviewRating)}
+                  <span className="text-gray-400 text-xs font-bold ml-2">({newReviewRating} из 5)</span>
+                </div>
+                <textarea 
+                  value={newReviewText}
+                  onChange={(e) => setNewReviewText(e.target.value)}
+                  placeholder="Напишите, как прошла сделка..." 
+                  className="w-full min-h-[100px] border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-black resize-y"
+                ></textarea>
+                <div className="flex justify-end">
+                  <button 
+                    type="button" 
+                    onClick={handleAddReview}
+                    disabled={!newReviewText.trim()}
+                    className="px-6 py-2.5 bg-black text-white font-extrabold text-sm rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Отправить отзыв
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {sortedReviews.length === 0 ? (
+              <div className="text-center py-8 text-gray-400 font-medium">Отзывов пока нет. Будьте первым!</div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                <AnimatePresence>
+                  {sortedReviews.map(r => (
+                    <motion.div 
+                      layout
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      key={r.id} 
+                      className="p-5 border border-gray-100 rounded-2xl bg-white"
+                    >
+                      <div className="flex items-center justify-between mb-3 border-b border-gray-50 pb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center font-bold text-gray-400 text-lg uppercase">
+                            {r.author[0]}
+                          </div>
+                          <div>
+                            <div className="font-bold text-gray-900 text-sm">{r.author}</div>
+                            <div className="text-xs text-gray-400 mt-0.5">{new Date(r.date).toLocaleDateString('ru-RU')}</div>
+                          </div>
+                        </div>
+                        <div className="flex gap-0.5">
+                          {renderStars(r.rating)}
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-800 leading-relaxed font-medium whitespace-pre-wrap">{r.text}</p>
+                    </motion.div>
+                  ))}
                 </AnimatePresence>
               </div>
             )}

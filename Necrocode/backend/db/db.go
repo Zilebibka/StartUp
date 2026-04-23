@@ -82,6 +82,8 @@ CREATE TABLE IF NOT EXISTS listings (
 	project_url TEXT,
 	code_file_name VARCHAR(255),
 	image_data_urls JSONB NOT NULL DEFAULT '[]'::jsonb,
+	category VARCHAR(50) NOT NULL DEFAULT '',
+	tech_stack VARCHAR(255) NOT NULL DEFAULT '',
 	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -91,6 +93,14 @@ CREATE INDEX IF NOT EXISTS listings_created_at_idx ON listings(created_at DESC);
 
 	if _, err := db.Exec(listingsTableQuery); err != nil {
 		return fmt.Errorf("create listings table: %w", err)
+	}
+
+	const listingsMigrationQuery = `
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS category VARCHAR(50) NOT NULL DEFAULT '';
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS tech_stack VARCHAR(255) NOT NULL DEFAULT '';
+`
+	if _, err := db.Exec(listingsMigrationQuery); err != nil {
+		return fmt.Errorf("migrate listings table: %w", err)
 	}
 
 	const cartItemsTableQuery = `

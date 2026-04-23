@@ -1,11 +1,11 @@
-import { motion } from 'framer-motion'
+﻿import { motion } from 'framer-motion'
 import { FileCode, ImagePlus, Upload, X } from 'lucide-react'
 import type { ChangeEvent, FormEvent, RefObject } from 'react'
 import type { DeliveryMode } from '../types'
 
 interface SellPageProps {
-  sellForm: { title: string; description: string; price: string; projectUrl: string; deliveryMode: DeliveryMode };
-  setSellForm: React.Dispatch<React.SetStateAction<{ title: string; description: string; price: string; projectUrl: string; deliveryMode: DeliveryMode }>>;
+  sellForm: { title: string; description: string; price: string; category: string; techStack: string; projectUrl: string; deliveryMode: DeliveryMode };
+  setSellForm: React.Dispatch<React.SetStateAction<{ title: string; description: string; price: string; category: string; techStack: string; projectUrl: string; deliveryMode: DeliveryMode }>>;
   handleCreateListing: (e: FormEvent) => Promise<void>;
   codeFile: File | null;
   codeFileInputRef: RefObject<HTMLInputElement | null>;
@@ -36,6 +36,24 @@ export function SellPage({
         <div className="space-y-2">
           <label className="text-sm font-medium">Описание проекта</label>
           <textarea value={sellForm.description} onChange={(e) => setSellForm((prev) => ({ ...prev, description: e.target.value }))} className="w-full min-h-[120px] rounded-xl border px-4 py-2" placeholder="Опишите стек, готовность, что нужно доработать" required />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Тип проекта</label>
+            <select value={sellForm.category} onChange={(e) => setSellForm((prev) => ({ ...prev, category: e.target.value }))} className="w-full rounded-xl border px-4 py-2" required>
+              <option value="apps">Приложения</option>
+              <option value="sites">Сайты</option>
+              <option value="games">Игры</option>
+              <option value="scripts">Скрипты/Боты</option>
+              <option value="blogs">Блоги</option>
+              <option value="domains">Домены</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Технический стек</label>
+            <input value={sellForm.techStack} onChange={(e) => setSellForm((prev) => ({ ...prev, techStack: e.target.value }))} className="w-full rounded-xl border px-4 py-2" placeholder="React, Node.js, Next, etc." required />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

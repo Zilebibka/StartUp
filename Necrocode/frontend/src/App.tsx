@@ -1105,7 +1105,6 @@ function App() {
               openUserProfile={(login) => {
                 void openUserProfile(login)
               }}
-              onUpdateAccountSettings={handleAccountSettingsUpdate}
             />
           )}
 

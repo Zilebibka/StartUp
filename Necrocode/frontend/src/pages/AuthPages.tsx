@@ -1,6 +1,6 @@
 ﻿import { motion, AnimatePresence } from 'framer-motion'
-import { Edit, Calendar, ChevronLeft, ChevronRight, ImagePlus, Wallet, Mail, Tag, BadgeCheck, Star } from 'lucide-react'
-import { useState, useEffect, useRef } from 'react'
+import { Edit, ImagePlus, Wallet, Mail, Tag, Star } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import type { FormEvent } from 'react'
 import type { Listing, User } from '../types'
 
@@ -64,106 +64,6 @@ export function LoginPage({ loginForm, setLoginForm, handleLogin }: LoginPagePro
   );
 }
 
-// Custom DatePicker Component
-const MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
-function CustomDatePicker({ date, onDateChange }: { date: string, onDateChange: (d: string) => void }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [currentViewDate, setCurrentViewDate] = useState(() => {
-    if (date) return new Date(date);
-    return new Date(2000, 0, 1);
-  });
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const changeMonth = (delta: number) => {
-    setCurrentViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
-  };
-  const changeYear = (delta: number) => {
-    setCurrentViewDate(prev => new Date(prev.getFullYear() + delta, prev.getMonth(), 1));
-  };
-
-  const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
-  const daysInMonth = getDaysInMonth(currentViewDate.getFullYear(), currentViewDate.getMonth());
-  const firstDayOfMonth = new Date(currentViewDate.getFullYear(), currentViewDate.getMonth(), 1).getDay();
-  const startingEmptyCells = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
-
-  const handleDayClick = (day: number) => {
-    const newDate = new Date(Date.UTC(currentViewDate.getFullYear(), currentViewDate.getMonth(), day));
-    onDateChange(newDate.toISOString().split('T')[0]);
-    setIsOpen(false);
-  };
-
-  const formatDateLabel = (dStr: string) => {
-    if (!dStr) return 'Выбрать дату';
-    const [y, m, d] = dStr.split('-');
-    return d + ' ' + MONTHS[parseInt(m) - 1].slice(0,3).toLowerCase() + ' ' + y;
-  };
-
-  return (
-    <div className="relative" ref={ref}>
-      <button 
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between text-left font-medium text-gray-900 bg-white border border-gray-200 px-4 py-3 rounded-xl hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all shadow-sm"
-      >
-        <span className={date ? 'text-gray-900' : 'text-gray-400'}>{formatDateLabel(date)}</span>
-        <Calendar className="w-4 h-4 text-gray-400" />
-      </button>
-
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div 
-            initial={{ opacity: 0, y: -10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.95 }}
-            transition={{ duration: 0.15 }}
-            className="absolute top-full left-0 z-50 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 w-[300px] max-w-[calc(100vw-2rem)] overflow-hidden"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <button type="button" onClick={() => changeYear(-1)} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-black font-semibold text-xs transition-colors">Y-</button>
-              <button type="button" onClick={() => changeMonth(-1)} className="p-1 hover:bg-gray-100 rounded text-gray-800 hover:text-black transition-colors"><ChevronLeft className="w-5 h-5" /></button>
-              <div className="font-extrabold tracking-wide text-gray-900 text-sm">
-                {MONTHS[currentViewDate.getMonth()]} {currentViewDate.getFullYear()}
-              </div>
-              <button type="button" onClick={() => changeMonth(1)} className="p-1 hover:bg-gray-100 rounded text-gray-800 hover:text-black transition-colors"><ChevronRight className="w-5 h-5" /></button>
-              <button type="button" onClick={() => changeYear(1)} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-black font-semibold text-xs transition-colors">Y+</button>
-            </div>
-            <div className="grid grid-cols-7 gap-1 text-center text-xs font-black text-gray-300 mb-2 uppercase tracking-widest">
-              {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d => <div key={d}>{d}</div>)}
-            </div>
-            <div className="grid grid-cols-7 gap-1 text-sm font-bold">
-              {Array.from({ length: startingEmptyCells }).map((_, i) => <div key={`e-${i}`} />)}
-              {Array.from({ length: daysInMonth }).map((_, i) => {
-                const day = i + 1;
-                const isSelected = date && parseInt(date.split('-')[2]) === day && parseInt(date.split('-')[1]) - 1 === currentViewDate.getMonth() && parseInt(date.split('-')[0]) === currentViewDate.getFullYear();
-                return (
-                  <button
-                    key={day}
-                    type="button"
-                    onClick={() => handleDayClick(day)}
-                    className={`h-8 w-full rounded-md flex items-center justify-center transition-all ${isSelected ? 'bg-black text-white hover:opacity-90' : 'text-gray-700 hover:bg-gray-100 hover:text-black'}`}
-                  >
-                    {day}
-                  </button>
-                )
-              })}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
-
 interface ProfilePageProps {
   currentUser: User | null;
   viewedUser?: User | null;
@@ -173,26 +73,18 @@ interface ProfilePageProps {
   handleEditListing: (listing: Listing) => void;
   openListingPage: (id: number) => void;
   openUserProfile: (login: string) => void;
-  onUpdateAccountSettings: (payload: { currentPassword: string; email: string; newPassword: string }) => Promise<void>;
 }
 
-export function ProfilePage({ currentUser, viewedUser, isOwnProfile = false, balance, listings, handleEditListing, openListingPage, openUserProfile, onUpdateAccountSettings }: ProfilePageProps) {
+export function ProfilePage({ currentUser, viewedUser, isOwnProfile = false, balance, listings, handleEditListing, openListingPage, openUserProfile }: ProfilePageProps) {
   const profileUser = viewedUser ?? currentUser;
   const userListings = listings.filter((l) => l.ownerLogin === profileUser?.login);
   const EMOJI_AVATARS = ['😎', '💀', '👻', '👾', '🤖', '🤠', '🦊', '🚀', '🔥', '👑', '🥺', '🤡', '🌟'];
-  const [dob, setDob] = useState("");
   const [avatar, setAvatar] = useState(EMOJI_AVATARS[0]);
 
   const [reviews, setReviews] = useState<{id: number, text: string, rating: number, author: string, date: string}[]>([]);
   const [newReviewText, setNewReviewText] = useState("");
   const [newReviewRating, setNewReviewRating] = useState(5);
   const [reviewSort, setReviewSort] = useState("new");
-  const [settingsEmail, setSettingsEmail] = useState("");
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [settingsMessage, setSettingsMessage] = useState("");
-  const [settingsError, setSettingsError] = useState("");
-  const [isSavingSettings, setIsSavingSettings] = useState(false);
   const isImageAvatar = avatar.startsWith('data:image/');
 
   const canReviewThisProfile = !!currentUser?.login && !!profileUser?.login && currentUser.login !== profileUser.login;
@@ -200,7 +92,6 @@ export function ProfilePage({ currentUser, viewedUser, isOwnProfile = false, bal
   useEffect(() => {
     if (!profileUser?.login) {
       setReviews([]);
-      setDob("");
       setAvatar(EMOJI_AVATARS[0]);
       return;
     }
@@ -210,12 +101,10 @@ export function ProfilePage({ currentUser, viewedUser, isOwnProfile = false, bal
       if (savedSettings) {
         try {
           const parsed = JSON.parse(savedSettings);
-          if (parsed.dob) setDob(parsed.dob);
           if (parsed.avatar) setAvatar(parsed.avatar);
         } catch(e) {}
       }
     } else {
-      setDob("");
       setAvatar(EMOJI_AVATARS[0]);
     }
 
@@ -248,38 +137,6 @@ export function ProfilePage({ currentUser, viewedUser, isOwnProfile = false, bal
     localStorage.setItem("profileReviews_" + profileUser.login, JSON.stringify(updated));
   };
 
-  const handleSettingsSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setSettingsMessage("");
-    setSettingsError("");
-
-    if (!isOwnProfile) return;
-    if (!currentPassword.trim()) {
-      setSettingsError('Введите текущий пароль.');
-      return;
-    }
-    if (!settingsEmail.trim() && !newPassword.trim()) {
-      setSettingsError('Укажите новый email или новый пароль.');
-      return;
-    }
-
-    setIsSavingSettings(true);
-    try {
-      await onUpdateAccountSettings({
-        currentPassword: currentPassword.trim(),
-        email: settingsEmail.trim(),
-        newPassword: newPassword.trim(),
-      });
-      setSettingsMessage('Настройки аккаунта обновлены.');
-      setCurrentPassword("");
-      setNewPassword("");
-    } catch (err) {
-      setSettingsError(err instanceof Error ? err.message : 'Не удалось обновить настройки аккаунта.');
-    } finally {
-      setIsSavingSettings(false);
-    }
-  };
-
   const avgRating = reviews.length > 0 ? (reviews.reduce((acc, current) => acc + current.rating, 0) / reviews.length).toFixed(1) : "0.0";
 
   const renderStars = (rating: number, onClick?: (rating: number) => void) => {
@@ -299,17 +156,6 @@ export function ProfilePage({ currentUser, viewedUser, isOwnProfile = false, bal
     if (reviewSort === 'negative') return a.rating - b.rating;
     return 0;
   });
-
-  const saveSettings = (newDob: string, newAvatar: string) => {
-    if (isOwnProfile && profileUser?.login) {
-      localStorage.setItem("profileSettings_" + profileUser.login, JSON.stringify({ dob: newDob, avatar: newAvatar }));
-    }
-  };
-
-  useEffect(() => {
-    if (!isOwnProfile || !profileUser) return;
-    setSettingsEmail(profileUser.email || "");
-  }, [isOwnProfile, profileUser?.email]);
 
   if (!profileUser) return <p className="text-red-500 p-8 text-center text-lg font-bold">Профиль не найден.</p>;
 
@@ -376,59 +222,6 @@ export function ProfilePage({ currentUser, viewedUser, isOwnProfile = false, bal
             </div>
           </div>
 
-          {isOwnProfile && <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-xl shadow-gray-200/20 flex flex-col gap-3">
-            <h3 className="font-extrabold text-gray-900 flex items-center gap-2 mb-2"><BadgeCheck className="w-5 h-5 text-gray-800" /> Персональная инфо</h3>
-            <div>
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Ваша Дата Рождения</label>
-              <CustomDatePicker date={dob} onDateChange={(newDate) => { setDob(newDate); saveSettings(newDate, avatar); }} />
-            </div>
-          </div>}
-
-          {isOwnProfile && <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-xl shadow-gray-200/20 flex flex-col gap-3">
-            <h3 className="font-extrabold text-gray-900 mb-2">Безопасность аккаунта</h3>
-            <form onSubmit={handleSettingsSubmit} className="space-y-3">
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Новый Email</label>
-                <input
-                  type="email"
-                  value={settingsEmail}
-                  onChange={(e) => setSettingsEmail(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                  placeholder="example@mail.com"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Текущий пароль</label>
-                <input
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                  placeholder="Введите текущий пароль"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Новый пароль</label>
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                  placeholder="Оставьте пустым, если менять не нужно"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={isSavingSettings}
-                className="w-full rounded-xl bg-black text-white py-2.5 font-bold hover:bg-gray-800 transition-colors disabled:opacity-60"
-              >
-                {isSavingSettings ? 'Сохраняем...' : 'Сохранить изменения'}
-              </button>
-              {settingsError && <p className="text-xs text-red-600">{settingsError}</p>}
-              {settingsMessage && <p className="text-xs text-emerald-600">{settingsMessage}</p>}
-            </form>
-          </div>}
         </div>
 
         {/* Right Column: Stats & Listings */}

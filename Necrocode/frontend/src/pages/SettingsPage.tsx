@@ -53,6 +53,17 @@ const isDataImage = (value: string) => value.startsWith('data:image/')
 
 export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUpdated }: SettingsPageProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile')
+  const [birthDate, setBirthDate] = useState(() => {
+    const raw = localStorage.getItem(PROFILE_SETTINGS_KEY_PREFIX + currentUser.login)
+    if (!raw) return ''
+
+    try {
+      const parsed = JSON.parse(raw) as { dob?: string }
+      return parsed.dob ?? ''
+    } catch {
+      return ''
+    }
+  })
 
   const [displayName, setDisplayName] = useState(currentUser.displayName ?? '')
   const [displayNameMessage, setDisplayNameMessage] = useState('')
@@ -129,7 +140,7 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
     [],
   )
 
-  const persistProfileSettings = (nextAvatar: string) => {
+  const persistProfileSettings = (next: Partial<{ dob: string; avatar: string }>) => {
     const key = PROFILE_SETTINGS_KEY_PREFIX + currentUser.login
     const raw = localStorage.getItem(key)
     let prev: { dob?: string; avatar?: string } = {}
@@ -142,7 +153,7 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
       }
     }
 
-    localStorage.setItem(key, JSON.stringify({ ...prev, avatar: nextAvatar }))
+    localStorage.setItem(key, JSON.stringify({ ...prev, ...next }))
   }
 
   const handleAvatarUpload = async (file: File) => {
@@ -162,7 +173,7 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
       setAvatarDataUrl(dataUrl)
       setAvatarError('')
       setAvatarMessage('Аватар обновлен.')
-      persistProfileSettings(dataUrl)
+      persistProfileSettings({ avatar: dataUrl })
     }
     reader.onerror = () => setAvatarError('Не удалось загрузить изображение.')
     reader.readAsDataURL(file)
@@ -268,6 +279,11 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
     localStorage.setItem(BLACKLIST_KEY_PREFIX + currentUser.login, JSON.stringify(next))
   }
 
+  const handleBirthDateChange = (nextDate: string) => {
+    setBirthDate(nextDate)
+    persistProfileSettings({ dob: nextDate })
+  }
+
   return (
     <motion.section
       key="settings"
@@ -282,7 +298,6 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
         </div>
         <div>
           <h1 className="text-2xl font-black text-gray-900">Настройки профиля</h1>
-          <p className="text-sm text-gray-500">Управляйте аккаунтом в стиле VK</p>
         </div>
       </div>
 
@@ -332,6 +347,19 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
                 </div>
                 {displayNameError && <p className="mt-2 text-xs text-red-600">{displayNameError}</p>}
                 {displayNameMessage && <p className="mt-2 text-xs text-emerald-600">{displayNameMessage}</p>}
+              </div>
+
+              <div className="rounded-2xl border border-gray-100 bg-gray-50 p-5">
+                <h3 className="text-sm font-extrabold text-gray-800 uppercase tracking-wide mb-3">Дата рождения</h3>
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-black text-gray-500 uppercase tracking-widest">Выберите дату рождения</label>
+                  <input
+                    type="date"
+                    value={birthDate}
+                    onChange={(e) => handleBirthDateChange(e.target.value)}
+                    className="w-full max-w-sm rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
               </div>
 
               <div className="rounded-2xl border border-gray-100 bg-gray-50 p-5">
@@ -495,9 +523,16 @@ function ToggleItem({ label, checked, onChange }: { label: string; checked: bool
       <button
         type="button"
         onClick={() => onChange(!checked)}
-        className={`relative h-6 w-11 rounded-full transition-colors ${checked ? 'bg-black' : 'bg-gray-300'}`}
+        aria-pressed={checked}
+        className={`relative h-7 w-12 shrink-0 rounded-full border-2 transition-colors duration-300 ${
+          checked ? 'border-black bg-black' : 'border-gray-300 bg-gray-300'
+        }`}
       >
-        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${checked ? 'translate-x-5' : 'translate-x-0.5'}`} />
+        <span
+          className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.25)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform ${
+            checked ? 'translate-x-0' : 'translate-x-5'
+          }`}
+        />
       </button>
     </label>
   )

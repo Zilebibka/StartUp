@@ -617,13 +617,13 @@ function App() {
   return (
     <div className="min-h-screen bg-white text-gray-900 font-sans">
       <header className="sticky top-0 w-full bg-white border-b border-gray-200 shadow-sm z-50">
-        <div className="w-full px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-12">
+        <div className="w-full px-3 sm:px-6 lg:px-8 min-h-16 py-2 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-4 sm:gap-8">
             <button
               onClick={navigateToHome}
               className="flex items-center hover:opacity-80 transition-opacity"
             >
-              <span className="font-extrabold text-2xl tracking-tight text-gray-900">
+              <span className="font-extrabold text-xl sm:text-2xl tracking-tight text-gray-900">
                 NecroCode
               </span>
             </button>
@@ -635,7 +635,7 @@ function App() {
             </nav>
           </div>
 
-          <div className="flex items-center gap-5 text-gray-600">
+          <div className="flex items-center gap-3 sm:gap-5 text-gray-600 w-full sm:w-auto justify-between sm:justify-end">
             <div className="flex items-center relative h-8 justify-end">
               <AnimatePresence mode="wait">
                 {isSearchOpen && (
@@ -643,13 +643,13 @@ function App() {
                     autoFocus
                     key="searchInput"
                     initial={{ width: 0, opacity: 0 }}
-                    animate={{ width: '240px', opacity: 1 }}
+                    animate={{ width: 'min(68vw, 240px)', opacity: 1 }}
                     exit={{ width: 0, opacity: 0 }}
                     transition={{ duration: 0.25 }}
                     placeholder="Поиск..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="absolute right-0 outline-none bg-gray-100 border border-gray-200 text-base text-gray-800 overflow-hidden whitespace-nowrap rounded-full pl-4 pr-10 py-1.5 focus:bg-white focus:border-black shadow-inner"
+                    className="absolute right-0 outline-none bg-gray-100 border border-gray-200 text-sm sm:text-base text-gray-800 overflow-hidden whitespace-nowrap rounded-full pl-3 sm:pl-4 pr-10 py-1.5 focus:bg-white focus:border-black shadow-inner"
                   />
                 )}
               </AnimatePresence>
@@ -661,13 +661,13 @@ function App() {
             <div className="flex items-center relative h-8">
               <AnimatePresence mode="wait">
                 {isWalletOpen && (
-                  <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 'auto', opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="flex items-center pr-3 overflow-hidden gap-3 whitespace-nowrap">
+                  <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 'auto', opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="flex items-center pr-2 sm:pr-3 overflow-hidden gap-2 sm:gap-3 whitespace-nowrap max-w-[72vw] sm:max-w-none">
                     <span className="font-bold text-sm text-gray-900">{balance.toLocaleString('ru-RU')} ₽</span>
                     <button onClick={() => { setCurrentPage('topup'); setIsWalletOpen(false) }} className="flex items-center gap-1 bg-black text-white text-xs px-2.5 py-1.5 rounded-lg">
-                      <Plus className="w-3 h-3" /> Пополнить
+                      <Plus className="w-3 h-3" /> <span className="hidden sm:inline">Пополнить</span>
                     </button>
                     <button onClick={() => { setCurrentPage('withdraw'); setIsWalletOpen(false) }} className="flex items-center gap-1 bg-white text-black border border-gray-300 text-xs px-2.5 py-1.5 rounded-lg">
-                      <ArrowDownToLine className="w-3 h-3" /> Вывести
+                      <ArrowDownToLine className="w-3 h-3" /> <span className="hidden sm:inline">Вывести</span>
                     </button>
                   </motion.div>
                 )}
@@ -767,7 +767,8 @@ function App() {
             </div>
 
             {currentUser ? (
-              <div className="flex items-center gap-3 ml-2 border-l pl-4 border-gray-200">
+              <>
+              <div className="hidden sm:flex items-center gap-3 ml-2 border-l pl-4 border-gray-200">
                 <button 
                   onClick={() => setCurrentPage('profile')}
                   className="bg-black text-white px-4 py-1.5 rounded-full text-sm font-medium hover:bg-gray-800 transition-colors"
@@ -778,17 +779,35 @@ function App() {
                   <LogOut className="w-5 h-5" />
                 </button>
               </div>
+              <button
+                onClick={() => setCurrentPage('profile')}
+                className="sm:hidden h-8 min-w-8 px-2 rounded-full bg-black text-white text-xs font-bold"
+                title="Профиль"
+              >
+                {(currentUser.login?.[0] || 'U').toUpperCase()}
+              </button>
+              </>
             ) : (
-              <div className="flex items-center gap-3 ml-2 border-l pl-4 border-gray-200">
+              <>
+              <div className="hidden sm:flex items-center gap-3 ml-2 border-l pl-4 border-gray-200">
                 <button onClick={() => setCurrentPage('login')} className="text-sm font-semibold hover:text-black">Войти</button>
                 <button onClick={() => setCurrentPage('register')} className="bg-blue-600 text-white px-4 py-1.5 rounded-full text-sm font-medium hover:bg-blue-700">Регистрация</button>
               </div>
+              <button onClick={() => setCurrentPage('login')} className="sm:hidden text-xs font-semibold rounded-full border border-gray-300 px-3 py-1.5">Войти</button>
+              </>
             )}
           </div>
+
+          <nav className="md:hidden w-full border-t border-gray-100 pt-2 flex items-center justify-between text-xs font-semibold text-gray-700">
+            <button onClick={handleSellOpen} className="hover:text-black transition-colors">Продать</button>
+            <button onClick={navigateToHome} className="hover:text-black transition-colors">Каталог</button>
+            <button onClick={() => setCurrentPage('help')} className="hover:text-black transition-colors">Помощь</button>
+            <button onClick={() => setCurrentPage('about')} className="hover:text-black transition-colors">О нас</button>
+          </nav>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pt-8 sm:pt-10">
         <div className="flex flex-col lg:flex-row gap-8">
           <main className="flex-1">
             <AnimatePresence mode="wait">

@@ -25,7 +25,7 @@ export function SellPage({
   editingListingId, handleDeleteListing
 }: SellPageProps) {
   return (
-    <motion.section key="sell" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="max-w-2xl mx-auto bg-white border rounded-2xl shadow-sm p-6 sm:p-8">
+    <motion.section key="sell" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="max-w-2xl mx-auto bg-white border rounded-2xl shadow-sm p-4 sm:p-8">
       <h1 className="text-2xl font-bold mb-4">{editingListingId ? 'Редактировать объявление' : 'Разместить объявление'}</h1>
       <form onSubmit={handleCreateListing} className="space-y-5">
         <div className="space-y-2">
@@ -86,7 +86,7 @@ export function SellPage({
 
         <div className="space-y-3">
           <label className="text-sm font-medium">Фото проекта (до 5 шт)</label>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2 sm:gap-3">
             {sellImagePreviews.map((src, index) => (
               <div key={`${src}-${index}`} className="relative h-24 w-24 overflow-hidden rounded-xl border">
                 <img src={src} alt="Project preview" className="h-full w-full object-cover" />
@@ -104,7 +104,7 @@ export function SellPage({
           <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleSellImageChange} />
         </div>
 
-        <div className="flex gap-4">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
           <button className="flex-1 rounded-xl bg-black py-2.5 text-white inline-flex items-center justify-center gap-2 transition hover:bg-gray-800" type="submit">
             <Upload className="h-4 w-4" /> {editingListingId ? 'Сохранить изменения' : 'Опубликовать объявление'}
           </button>
@@ -113,7 +113,7 @@ export function SellPage({
             <button 
               type="button" 
               onClick={handleDeleteListing}
-              className="rounded-xl border border-red-500 text-red-600 px-6 py-2.5 font-medium hover:bg-red-50 transition-colors"
+              className="rounded-xl border border-red-500 text-red-600 px-6 py-2.5 font-medium hover:bg-red-50 transition-colors w-full sm:w-auto"
             >
               Удалить
             </button>

@@ -27,7 +27,7 @@ export function WithdrawPage({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
-      className="max-w-3xl mx-auto bg-white border rounded-2xl shadow-sm p-8 space-y-6"
+      className="max-w-3xl mx-auto bg-white border rounded-2xl shadow-sm p-4 sm:p-8 space-y-5 sm:space-y-6"
     >
       <h1 className="text-2xl font-bold">Вывод средств</h1>
       <p className="text-sm text-gray-500">Доступно для вывода: <b>{balance.toLocaleString('ru-RU')} ₽</b></p>
@@ -39,7 +39,7 @@ export function WithdrawPage({
             <button
               key={`${amount}-${idx}`}
               onClick={() => setWithdrawAmount(amount)}
-              className={`px-4 py-2 border rounded-xl ${withdrawAmount === amount ? 'bg-black text-white' : ''}`}
+              className={`px-3 sm:px-4 py-2 border rounded-xl text-sm ${withdrawAmount === amount ? 'bg-black text-white' : ''}`}
             >
               {idx === 3 ? 'Все средства' : `${amount} ₽`}
             </button>
@@ -57,10 +57,10 @@ export function WithdrawPage({
 
       <div className="space-y-4">
         <label className="text-sm font-medium">Куда вывести</label>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           <button
             onClick={() => { setWithdrawMethod('card'); setWithdrawDestination(''); }}
-            className={`border-2 rounded-xl p-4 transition-all duration-200 ${
+            className={`border-2 rounded-xl p-3 sm:p-4 text-sm sm:text-base transition-all duration-200 ${
               withdrawMethod === 'card' 
                 ? 'border-black bg-gray-900 text-white shadow-md transform scale-[1.02]' 
                 : 'border-gray-200 hover:border-gray-400'
@@ -70,7 +70,7 @@ export function WithdrawPage({
           </button>
           <button
             onClick={() => { setWithdrawMethod('sbp'); setWithdrawDestination(''); }}
-            className={`border-2 rounded-xl p-4 transition-all duration-200 ${
+            className={`border-2 rounded-xl p-3 sm:p-4 text-sm sm:text-base transition-all duration-200 ${
               withdrawMethod === 'sbp' 
                 ? 'border-black bg-gray-900 text-white shadow-md transform scale-[1.02]' 
                 : 'border-gray-200 hover:border-gray-400'
@@ -80,7 +80,7 @@ export function WithdrawPage({
           </button>
           <button
             onClick={() => { setWithdrawMethod('crypto'); setWithdrawDestination(''); }}
-            className={`border-2 rounded-xl p-4 transition-all duration-200 ${
+            className={`border-2 rounded-xl p-3 sm:p-4 text-sm sm:text-base transition-all duration-200 ${
               withdrawMethod === 'crypto' 
                 ? 'border-black bg-gray-900 text-white shadow-md transform scale-[1.02]' 
                 : 'border-gray-200 hover:border-gray-400'

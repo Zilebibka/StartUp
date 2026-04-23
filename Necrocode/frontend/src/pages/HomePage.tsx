@@ -16,18 +16,18 @@ export function HomePage({ filteredListings, openListingPage, handleAddToCart }:
       initial={{ opacity: 0, y: 12 }} 
       animate={{ opacity: 1, y: 0 }} 
       exit={{ opacity: 0, y: -8 }} 
-      className="w-full flex flex-col gap-14"
+      className="w-full flex flex-col gap-10 sm:gap-14"
     >
-      <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row gap-8 items-center justify-between">
-        <div className="flex-1 space-y-4 max-w-sm">
-          <h1 className="text-2xl lg:text-3xl font-extrabold text-blue-950">Информация о приложении</h1>
-          <p className="text-base text-gray-700 leading-relaxed font-semibold">
+      <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row gap-6 sm:gap-8 items-center justify-between">
+        <div className="flex-1 space-y-4 max-w-sm w-full">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-blue-950">Информация о приложении</h1>
+          <p className="text-sm sm:text-base text-gray-700 leading-relaxed font-semibold">
             Маркетплейс для покупки<br/>
             и продажи незавершенных<br/>
             IT-проектов
           </p>
         </div>
-        <div className="w-full lg:w-[500px] h-64 rounded-xl bg-[#3B6BAF] relative overflow-hidden flex items-center justify-center p-6 shadow-md">
+        <div className="w-full lg:w-[500px] h-56 sm:h-64 rounded-xl bg-[#3B6BAF] relative overflow-hidden flex items-center justify-center p-4 sm:p-6 shadow-md">
           <div className="bg-white/90 backdrop-blur w-full max-w-sm rounded overflow-hidden shadow-xl border border-white/20">
              <div className="bg-gray-200 h-6 flex gap-1.5 items-center px-3">
                <div className="w-2.5 h-2.5 rounded-full bg-red-400"></div>
@@ -46,7 +46,7 @@ export function HomePage({ filteredListings, openListingPage, handleAddToCart }:
           </div>
           
           <div className="absolute inset-0 flex items-center justify-center rotate-[-12deg] pointer-events-none">
-             <div className="border-4 border-red-500 text-red-500 text-5xl font-black uppercase px-6 py-2 tracking-widest bg-white/10 backdrop-blur-sm -rotate-6 filter drop-shadow-md" style={{ textShadow: "2px 2px 0px rgba(0,0,0,0.1)" }}>
+             <div className="border-4 border-red-500 text-red-500 text-3xl sm:text-5xl font-black uppercase px-4 sm:px-6 py-1.5 sm:py-2 tracking-widest bg-white/10 backdrop-blur-sm -rotate-6 filter drop-shadow-md" style={{ textShadow: "2px 2px 0px rgba(0,0,0,0.1)" }}>
                ЗАБРОШЕНО
              </div>
           </div>
@@ -55,7 +55,7 @@ export function HomePage({ filteredListings, openListingPage, handleAddToCart }:
 
       <section className="space-y-6">
         <h2 className="text-2xl font-extrabold text-blue-950">Каталог</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {filteredListings.map((item, i) => (
             <motion.div 
               key={item.id} 
@@ -74,7 +74,7 @@ export function HomePage({ filteredListings, openListingPage, handleAddToCart }:
                  <div className="absolute inset-0 bg-blue-400 opacity-20 mix-blend-multiply pointer-events-none"></div>
               </div>
               
-              <div className="py-4 px-5 flex flex-col flex-1">
+              <div className="py-4 px-4 sm:px-5 flex flex-col flex-1">
                  <h3 className="font-bold text-gray-900 leading-tight mb-3 line-clamp-2">
                     {item.title}
                  </h3>

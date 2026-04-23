@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"Necrocode/api/models"
@@ -142,7 +144,7 @@ func setRefreshCookie(w http.ResponseWriter, token string) {
 		Path:     "/api/auth",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   false,
+		Secure:   cookieSecure(),
 		MaxAge:   int(refreshTokenTTL.Seconds()),
 		Expires:  time.Now().Add(refreshTokenTTL),
 	})
@@ -155,8 +157,13 @@ func clearRefreshCookie(w http.ResponseWriter) {
 		Path:     "/api/auth",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   false,
+		Secure:   cookieSecure(),
 		MaxAge:   -1,
 		Expires:  time.Unix(0, 0),
 	})
+}
+
+func cookieSecure() bool {
+	v := strings.ToLower(strings.TrimSpace(os.Getenv("COOKIE_SECURE")))
+	return v == "1" || v == "true" || v == "yes"
 }

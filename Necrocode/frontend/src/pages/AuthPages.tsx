@@ -12,9 +12,9 @@ interface RegisterPageProps {
 
 export function RegisterPage({ registerForm, setRegisterForm, handleRegister }: RegisterPageProps) {
   return (
-    <motion.section key="register" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="mx-auto max-w-md rounded-3xl border border-gray-100 p-8 bg-white shadow-xl shadow-gray-900/5 relative overflow-hidden">
+    <motion.section key="register" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="mx-auto max-w-md rounded-3xl border border-gray-100 p-5 sm:p-8 bg-white shadow-xl shadow-gray-900/5 relative overflow-hidden">
       <div className="absolute top-0 right-0 w-40 h-40 bg-gray-50 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
-      <h1 className="mb-6 text-3xl font-extrabold text-gray-900 tracking-tight">Регистрация</h1>
+      <h1 className="mb-6 text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">Регистрация</h1>
       <form className="space-y-4 relative z-10" onSubmit={handleRegister}>
         <div>
           <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Логин</label>
@@ -46,9 +46,9 @@ interface LoginPageProps {
 
 export function LoginPage({ loginForm, setLoginForm, handleLogin }: LoginPageProps) {
   return (
-    <motion.section key="login" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="mx-auto max-w-md rounded-3xl border border-gray-100 p-8 bg-white shadow-xl shadow-gray-900/5 relative overflow-hidden">
+    <motion.section key="login" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="mx-auto max-w-md rounded-3xl border border-gray-100 p-5 sm:p-8 bg-white shadow-xl shadow-gray-900/5 relative overflow-hidden">
       <div className="absolute top-0 right-0 w-40 h-40 bg-gray-50 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
-      <h1 className="mb-6 text-3xl font-extrabold text-gray-900 tracking-tight">С возвращением</h1>
+      <h1 className="mb-6 text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">С возвращением</h1>
       <form className="space-y-4 relative z-10" onSubmit={handleLogin}>
         <div>
           <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Логин</label>
@@ -126,7 +126,7 @@ function CustomDatePicker({ date, onDateChange }: { date: string, onDateChange: 
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="absolute top-full left-0 z-50 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 w-[300px] overflow-hidden"
+            className="absolute top-full left-0 z-50 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 w-[300px] max-w-[calc(100vw-2rem)] overflow-hidden"
           >
             <div className="flex items-center justify-between mb-4">
               <button type="button" onClick={() => changeYear(-1)} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-black font-semibold text-xs transition-colors">Y-</button>

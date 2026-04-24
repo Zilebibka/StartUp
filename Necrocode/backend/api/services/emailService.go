@@ -3,6 +3,7 @@ package services
 import (
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
 	"net/smtp"
 	"os"
@@ -82,44 +83,95 @@ func SendEmail(cfg SMTPConfig, to, subject, plainBody, htmlBody string) error {
 
 	addr := net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port))
 	auth := smtp.PlainAuth("", cfg.Username, cfg.Password, cfg.Host)
+	const smtpTimeout = 12 * time.Second
 
 	if cfg.Port == 465 {
-		conn, err := tls.Dial("tcp", addr, &tls.Config{ServerName: cfg.Host})
+		dialer := &net.Dialer{Timeout: smtpTimeout}
+		conn, err := tls.DialWithDialer(dialer, "tcp", addr, &tls.Config{ServerName: cfg.Host})
 		if err != nil {
-			return err
+			return fmt.Errorf("smtp connect failed: %w", err)
 		}
 		defer conn.Close()
+		_ = conn.SetDeadline(time.Now().Add(smtpTimeout))
 
 		client, err := smtp.NewClient(conn, cfg.Host)
 		if err != nil {
-			return err
+			return fmt.Errorf("smtp client failed: %w", err)
 		}
 		defer client.Close()
 
 		if err := client.Auth(auth); err != nil {
-			return err
+			return fmt.Errorf("smtp auth failed: %w", err)
 		}
 		if err := client.Mail(cfg.From); err != nil {
-			return err
+			return fmt.Errorf("smtp from failed: %w", err)
 		}
 		if err := client.Rcpt(to); err != nil {
-			return err
+			return fmt.Errorf("smtp recipient rejected: %w", err)
 		}
 
 		wc, err := client.Data()
 		if err != nil {
-			return err
+			return fmt.Errorf("smtp data failed: %w", err)
 		}
 		if _, err := wc.Write([]byte(message)); err != nil {
 			_ = wc.Close()
-			return err
+			return fmt.Errorf("smtp write failed: %w", err)
 		}
 		if err := wc.Close(); err != nil {
-			return err
+			return fmt.Errorf("smtp finalize failed: %w", err)
 		}
 
-		return client.Quit()
+		if err := client.Quit(); err != nil && err != io.EOF {
+			return fmt.Errorf("smtp quit failed: %w", err)
+		}
+		return nil
 	}
 
-	return smtp.SendMail(addr, auth, cfg.From, []string{to}, []byte(message))
+	conn, err := net.DialTimeout("tcp", addr, smtpTimeout)
+	if err != nil {
+		return fmt.Errorf("smtp connect failed: %w", err)
+	}
+	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(smtpTimeout))
+
+	client, err := smtp.NewClient(conn, cfg.Host)
+	if err != nil {
+		return fmt.Errorf("smtp client failed: %w", err)
+	}
+	defer client.Close()
+
+	if ok, _ := client.Extension("STARTTLS"); ok {
+		if err := client.StartTLS(&tls.Config{ServerName: cfg.Host}); err != nil {
+			return fmt.Errorf("smtp starttls failed: %w", err)
+		}
+	}
+
+	if err := client.Auth(auth); err != nil {
+		return fmt.Errorf("smtp auth failed: %w", err)
+	}
+	if err := client.Mail(cfg.From); err != nil {
+		return fmt.Errorf("smtp from failed: %w", err)
+	}
+	if err := client.Rcpt(to); err != nil {
+		return fmt.Errorf("smtp recipient rejected: %w", err)
+	}
+
+	wc, err := client.Data()
+	if err != nil {
+		return fmt.Errorf("smtp data failed: %w", err)
+	}
+	if _, err := wc.Write([]byte(message)); err != nil {
+		_ = wc.Close()
+		return fmt.Errorf("smtp write failed: %w", err)
+	}
+	if err := wc.Close(); err != nil {
+		return fmt.Errorf("smtp finalize failed: %w", err)
+	}
+
+	if err := client.Quit(); err != nil && err != io.EOF {
+		return fmt.Errorf("smtp quit failed: %w", err)
+	}
+
+	return nil
 }

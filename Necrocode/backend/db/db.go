@@ -169,5 +169,27 @@ CREATE INDEX IF NOT EXISTS email_codes_expires_at_idx ON email_codes(expires_at)
 		return fmt.Errorf("create email_codes table: %w", err)
 	}
 
+	const pendingRegistrationsTableQuery = `
+CREATE TABLE IF NOT EXISTS pending_registrations (
+	id BIGSERIAL PRIMARY KEY,
+	login VARCHAR(64) NOT NULL UNIQUE,
+	email VARCHAR(255) NOT NULL,
+	display_name VARCHAR(100) NOT NULL DEFAULT '',
+	password_hash TEXT NOT NULL,
+	code_hash TEXT NOT NULL,
+	attempt_count INTEGER NOT NULL DEFAULT 0,
+	expires_at TIMESTAMPTZ NOT NULL,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS pending_registrations_email_unique_idx ON pending_registrations(LOWER(email));
+CREATE INDEX IF NOT EXISTS pending_registrations_expires_at_idx ON pending_registrations(expires_at);
+`
+
+	if _, err := db.Exec(pendingRegistrationsTableQuery); err != nil {
+		return fmt.Errorf("create pending_registrations table: %w", err)
+	}
+
 	return nil
 }

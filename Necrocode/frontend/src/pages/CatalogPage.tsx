@@ -210,7 +210,7 @@ export function CatalogPage({ listings, openListingPage, openUserProfile }: Cata
                    ) : (
                       <img src="https://images.unsplash.com/photo-1542831371-29b0f74f9713?q=80&w=2070&auto=format&fit=crop" className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-500" alt="Placeholder" />
                    )}
-                   <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider text-gray-800 shadow-sm border border-white/20">
+                   <div className="listing-category-chip absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider text-gray-800 shadow-sm border border-white/20">
                      {item.category || 'Проект'}
                    </div>
                 </div>

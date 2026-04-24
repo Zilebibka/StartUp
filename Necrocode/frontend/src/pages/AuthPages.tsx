@@ -8,6 +8,7 @@ interface RegisterPageProps {
   registerForm: any;
   setRegisterForm: React.Dispatch<React.SetStateAction<any>>;
   handleRegister: (e: FormEvent) => Promise<void>;
+  isRegisterSubmitting: boolean;
   registerCode: string;
   setRegisterCode: React.Dispatch<React.SetStateAction<string>>;
   pendingRegisterLogin: string;
@@ -15,7 +16,17 @@ interface RegisterPageProps {
   handleResendRegisterCode: () => Promise<void>;
 }
 
-export function RegisterPage({ registerForm, setRegisterForm, handleRegister, registerCode, setRegisterCode, pendingRegisterLogin, handleVerifyRegisterCode, handleResendRegisterCode }: RegisterPageProps) {
+export function RegisterPage({ registerForm, setRegisterForm, handleRegister, isRegisterSubmitting, registerCode, setRegisterCode, pendingRegisterLogin, handleVerifyRegisterCode, handleResendRegisterCode }: RegisterPageProps) {
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false)
+
+  useEffect(() => {
+    setIsVerifyModalOpen(!!pendingRegisterLogin.trim())
+  }, [pendingRegisterLogin])
+
+  const closeVerifyModal = () => {
+    setIsVerifyModalOpen(false)
+  }
+
   return (
     <motion.section key="register" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="mx-auto max-w-md rounded-3xl border border-gray-100 p-5 sm:p-8 bg-white shadow-xl shadow-gray-900/5 relative overflow-hidden">
       <div className="absolute top-0 right-0 w-40 h-40 bg-gray-50 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
@@ -37,39 +48,75 @@ export function RegisterPage({ registerForm, setRegisterForm, handleRegister, re
           <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Пароль</label>
           <input className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all font-medium text-gray-900 bg-gray-50/50 focus:bg-white" type="password" placeholder="••••••••" value={registerForm.password} onChange={(e) => setRegisterForm((prev: any) => ({ ...prev, password: e.target.value }))} required />
         </div>
-        <button className="w-full rounded-xl bg-gray-900 hover:bg-black py-3.5 text-white font-bold shadow-lg shadow-gray-900/20 transition-all active:scale-[0.98] mt-2" type="submit">Создать аккаунт</button>
+        <button
+          className="w-full rounded-xl bg-gray-900 hover:bg-black disabled:bg-gray-500 disabled:cursor-not-allowed py-3.5 text-white font-bold shadow-lg shadow-gray-900/20 transition-all active:scale-[0.98] mt-2"
+          type="submit"
+          disabled={isRegisterSubmitting}
+        >
+          {isRegisterSubmitting ? 'Отправляем код...' : 'Создать аккаунт'}
+        </button>
       </form>
 
-      <div className="mt-6 border-t border-gray-100 pt-5">
-        <h2 className="text-sm font-extrabold uppercase tracking-wider text-gray-700">Подтверждение почты</h2>
-        <p className="mt-1 text-xs text-gray-500">После регистрации введите 6-значный код из письма.</p>
-        <form className="mt-3 space-y-3" onSubmit={handleVerifyRegisterCode}>
-          <input
-            className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all font-medium text-gray-900 bg-gray-50/50 focus:bg-white"
-            placeholder="Логин"
-            value={pendingRegisterLogin}
-            readOnly
-          />
-          <input
-            className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all font-medium text-gray-900 bg-gray-50/50 focus:bg-white tracking-[0.3em]"
-            placeholder="000000"
-            inputMode="numeric"
-            maxLength={6}
-            value={registerCode}
-            onChange={(e) => setRegisterCode(e.target.value.replace(/\D+/g, '').slice(0, 6))}
-          />
-          <button className="w-full rounded-xl bg-black hover:bg-gray-800 py-3 text-white font-bold transition-colors" type="submit">
-            Подтвердить email
-          </button>
-        </form>
-        <button
-          type="button"
-          onClick={() => { void handleResendRegisterCode() }}
-          className="mt-3 text-xs font-bold text-gray-600 hover:text-black transition-colors"
-        >
-          Отправить код повторно
-        </button>
-      </div>
+      <AnimatePresence>
+        {isVerifyModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/45 p-4 flex items-center justify-center"
+            onClick={closeVerifyModal}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 14, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              transition={{ duration: 0.18 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-2xl border border-gray-100 bg-white p-5 shadow-2xl"
+            >
+              <h2 className="text-lg font-extrabold text-gray-900">Подтверждение почты</h2>
+              <p className="mt-1 text-xs text-gray-500">Введите 6-значный код из письма, чтобы завершить создание профиля.</p>
+
+              <form className="mt-4 space-y-3" onSubmit={handleVerifyRegisterCode}>
+                <input
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all font-medium text-gray-900 bg-gray-50/50 focus:bg-white"
+                  placeholder="Логин"
+                  value={pendingRegisterLogin}
+                  readOnly
+                />
+                <input
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all font-medium text-gray-900 bg-gray-50/50 focus:bg-white tracking-[0.3em]"
+                  placeholder="000000"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={registerCode}
+                  onChange={(e) => setRegisterCode(e.target.value.replace(/\D+/g, '').slice(0, 6))}
+                />
+                <button className="w-full rounded-xl bg-black hover:bg-gray-800 py-3 text-white font-bold transition-colors" type="submit">
+                  Подтвердить email
+                </button>
+              </form>
+
+              <div className="mt-4 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => { void handleResendRegisterCode() }}
+                  className="text-xs font-bold text-gray-600 hover:text-black transition-colors"
+                >
+                  Отправить код повторно
+                </button>
+                <button
+                  type="button"
+                  onClick={closeVerifyModal}
+                  className="rounded-xl bg-gray-100 px-4 py-2 text-xs font-bold text-gray-800 hover:bg-gray-200 transition-colors"
+                >
+                  Закрыть
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.section>
   );
 }

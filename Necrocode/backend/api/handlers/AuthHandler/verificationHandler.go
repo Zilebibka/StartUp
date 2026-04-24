@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/mail"
@@ -73,6 +74,25 @@ func (h Handler) VerifyRegisterCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	hasPending, err := h.hasPendingRegistration(req.Login)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to verify code")
+		return
+	}
+	if hasPending {
+		user, err := h.completePendingRegistration(req.Login, req.Code)
+		if err != nil {
+			writePendingRegistrationError(w, err, "failed to verify code")
+			return
+		}
+
+		if err := h.issueSession(w, user); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "failed to create session")
+			return
+		}
+		return
+	}
+
 	const query = `
 		SELECT id, COALESCE(public_id, ''), login, COALESCE(email, ''), display_name, COALESCE(avatar_data_url, ''), birth_date, created_at, email_verified
 		FROM users
@@ -138,6 +158,14 @@ func (h Handler) ResendRegisterCode(w http.ResponseWriter, r *http.Request) {
 	req.Login = strings.TrimSpace(req.Login)
 	if req.Login == "" {
 		writeJSONError(w, http.StatusBadRequest, "login is required")
+		return
+	}
+
+	if err := h.resendPendingRegistrationCode(req.Login); err == nil {
+		writeJSON(w, http.StatusOK, map[string]string{"message": "verification code sent"})
+		return
+	} else if !errors.Is(err, errPendingRegistrationNotFound) {
+		writePendingRegistrationError(w, err, "failed to resend code")
 		return
 	}
 

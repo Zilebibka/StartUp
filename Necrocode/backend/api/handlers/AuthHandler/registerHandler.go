@@ -13,7 +13,6 @@ import (
 	"Necrocode/api/services"
 
 	"github.com/jackc/pgx/v5/pgconn"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type Handler struct {
@@ -36,62 +35,16 @@ func (h Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	login, email, err := h.createOrRefreshPendingRegistration(req)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to hash password")
-		return
-	}
-
-	const query = `
-		INSERT INTO users (public_id, login, email, display_name, password_hash, email_verified)
-		VALUES ($1, $2, $3, $4, $5, FALSE)
-		RETURNING id, created_at
-	`
-
-	var user models.User
-	user.Login = req.Login
-	user.Email = req.Email
-	user.DisplayName = req.DisplayName
-
-	for range 5 {
-		user.PublicID, err = generatePublicID()
-		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, "failed to create user")
-			return
-		}
-
-		err = h.DB.QueryRow(query, user.PublicID, user.Login, user.Email, user.DisplayName, string(hash)).Scan(&user.ID, &user.CreatedAt)
-		if err == nil {
-			break
-		}
-
-		if isConstraintViolation(err, "users_public_id_unique_idx") {
-			continue
-		}
-
-		if isUniqueViolation(err) {
-			writeJSONError(w, http.StatusConflict, "login or email already exists")
-			return
-		}
-
-		writeJSONError(w, http.StatusInternalServerError, "failed to create user")
-		return
-	}
-
-	if user.ID == 0 {
-		writeJSONError(w, http.StatusInternalServerError, "failed to create user")
-		return
-	}
-
-	if err := h.createAndSendEmailCode(user.ID, user.Email, codePurposeVerifyEmail); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to send verification code")
+		writePendingRegistrationError(w, err, "failed to start registration")
 		return
 	}
 
 	writeJSON(w, http.StatusAccepted, map[string]any{
 		"message": "verification code sent",
-		"login":   user.Login,
-		"email":   user.Email,
+		"login":   login,
+		"email":   email,
 	})
 }
 

@@ -51,45 +51,45 @@ export function AboutPage() {
       <div className="space-y-6">
         <h2 className="text-2xl font-black text-gray-900">Почему NecroCode?</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="border border-green-500/20 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow bg-white flex flex-col gap-4">
-            <div className="w-full h-32 bg-gray-900 rounded-xl flex items-center justify-center border-4 border-green-300 relative overflow-hidden">
+          <div className="border border-gray-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow bg-white flex flex-col gap-4">
+            <div className="w-full h-32 bg-slate-900 rounded-xl flex items-center justify-center border-2 border-gray-300 relative overflow-hidden">
                <div className="absolute inset-0 pt-3 pl-3">
-                 <pre className="text-[6px] text-green-400 font-mono leading-none opacity-80">
+                 <pre className="text-[6px] text-slate-300 font-mono leading-none opacity-80">
                    {"function init() {\n  connectDb();\n  startServer();\n  loadPlugins();\n}\n\n// TODO: add missing tables"}
                  </pre>
                </div>
-               <div className="absolute top-2 w-32 h-1.5 bg-yellow-400 rounded-full blur-[1px] opacity-70"></div>
+               <div className="absolute top-2 w-32 h-1.5 bg-lime-300/70 rounded-full blur-[1px] opacity-70"></div>
             </div>
             <div>
-              <h3 className="font-bold text-lg text-blue-950 mb-1">Восстановление</h3>
+              <h3 className="font-bold text-lg text-gray-900 mb-1">Восстановление</h3>
               <p className="text-sm text-gray-600 font-medium">Найдите уникальные<br/>проекты и дайте им<br/>вторую жизнь.</p>
             </div>
           </div>
           
-          <div className="border border-blue-500/20 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow bg-white flex flex-col gap-4">
-            <div className="w-full h-32 bg-gray-900 rounded-xl flex items-center justify-center border-4 border-blue-300 relative overflow-hidden">
+          <div className="border border-gray-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow bg-white flex flex-col gap-4">
+            <div className="w-full h-32 bg-slate-900 rounded-xl flex items-center justify-center border-2 border-gray-300 relative overflow-hidden">
                <div className="absolute inset-0 pt-3 pl-3">
-                 <pre className="text-[6px] text-blue-400 font-mono leading-none opacity-80">
+                 <pre className="text-[6px] text-slate-300 font-mono leading-none opacity-80">
                    {"import { Provider } from \"react-redux\"\nimport { store } from \"./store\"\n\nReactDOM.render(\n  <Provider store={store}>\n    <App />\n  </Provider>\n)"}
                  </pre>
                </div>
             </div>
             <div>
-              <h3 className="font-bold text-lg text-blue-950 mb-1">Экосистема</h3>
+              <h3 className="font-bold text-lg text-gray-900 mb-1">Экосистема</h3>
               <p className="text-sm text-gray-600 font-medium">Платформа для обмена<br/>кодом, опытом и идеями.</p>
             </div>
           </div>
           
-          <div className="border border-yellow-500/20 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow bg-white flex flex-col gap-4">
-            <div className="w-full h-32 bg-gray-900 rounded-xl flex items-center justify-center border-4 border-yellow-300 relative overflow-hidden">
+          <div className="border border-gray-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow bg-white flex flex-col gap-4">
+            <div className="w-full h-32 bg-slate-900 rounded-xl flex items-center justify-center border-2 border-gray-300 relative overflow-hidden">
                <div className="absolute inset-0 pt-3 pl-3">
-                 <pre className="text-[6px] text-yellow-400 font-mono leading-none opacity-80">
+                 <pre className="text-[6px] text-slate-300 font-mono leading-none opacity-80">
                    {"const crypto = require(\"crypto\");\n\nfunction hash(pwd) {\n  return crypto.pbkdf2Sync(pwd, salt, 1000, 64, \"sha512\");\n}"}
                  </pre>
                </div>
             </div>
             <div>
-              <h3 className="font-bold text-lg text-blue-950 mb-1">Безопасность</h3>
+              <h3 className="font-bold text-lg text-gray-900 mb-1">Безопасность</h3>
               <p className="text-sm text-gray-600 font-medium">Прозрачность сделок<br/>и надежная передача<br/>данных.</p>
             </div>
           </div>

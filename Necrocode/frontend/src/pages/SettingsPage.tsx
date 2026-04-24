@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import type { User } from '../types'
 
 type SettingsTab = 'profile' | 'security' | 'privacy' | 'notifications' | 'blacklist'
+type DarkThemeVariant = 'mint' | 'sage' | 'teal' | 'amber' | 'slate' | 'coral' | 'lavender' | 'rose'
 
 type PrivacyState = {
   showEmail: boolean
@@ -32,6 +33,8 @@ interface SettingsPageProps {
   onConfirmEmailChange: (newEmail: string, code: string) => Promise<void>
   themeMode: 'light' | 'dark'
   onThemeModeChange: (mode: 'light' | 'dark') => void
+  darkThemeVariant: DarkThemeVariant
+  onDarkThemeVariantChange: (variant: DarkThemeVariant) => void
 }
 
 const PRIVACY_KEY_PREFIX = 'privacySettings_'
@@ -53,9 +56,20 @@ const defaultNotificationState: NotificationState = {
   pushImportant: true,
 }
 
+const darkThemeOptions: Array<{ id: DarkThemeVariant; label: string; swatches: [string, string, string] }> = [
+  { id: 'mint', label: 'Мятный', swatches: ['#7CB342', '#C5E1A5', '#1b2740'] },
+  { id: 'sage', label: 'Шалфей', swatches: ['#6F8F72', '#BCD0BF', '#1b2740'] },
+  { id: 'teal', label: 'Петроль', swatches: ['#2A9D8F', '#A9D9D3', '#1b2740'] },
+  { id: 'amber', label: 'Янтарь', swatches: ['#C79A3B', '#E6D1A2', '#1b2740'] },
+  { id: 'slate', label: 'Сланец', swatches: ['#64748B', '#CBD5E1', '#1b2740'] },
+  { id: 'coral', label: 'Коралл', swatches: ['#D9776A', '#F6C7BF', '#1b2740'] },
+  { id: 'lavender', label: 'Лаванда', swatches: ['#8B7CC8', '#D8D2EE', '#1b2740'] },
+  { id: 'rose', label: 'Роза', swatches: ['#B76A7A', '#E8C4CC', '#1b2740'] },
+]
+
 const isDataImage = (value: string) => value.startsWith('data:image/')
 
-export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUpdated, onRequestEmailChangeCode, onConfirmEmailChange, themeMode, onThemeModeChange }: SettingsPageProps) {
+export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUpdated, onRequestEmailChangeCode, onConfirmEmailChange, themeMode, onThemeModeChange, darkThemeVariant, onDarkThemeVariantChange }: SettingsPageProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile')
   const [birthDate, setBirthDate] = useState(() => {
     const raw = localStorage.getItem(PROFILE_SETTINGS_KEY_PREFIX + currentUser.login)
@@ -455,6 +469,29 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
                   onChange={(checked) => onThemeModeChange(checked ? 'dark' : 'light')}
                 />
                 <p className="mt-2 text-xs text-gray-500">Переключение применяется сразу ко всем страницам.</p>
+
+                {themeMode === 'dark' && (
+                  <div className="mt-4 space-y-2.5">
+                    <p className="text-xs font-black text-gray-500 uppercase tracking-widest">Вариант темной темы</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                      {darkThemeOptions.map((option) => (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => onDarkThemeVariantChange(option.id)}
+                          className={`rounded-xl border px-3 py-2.5 text-left transition-colors ${darkThemeVariant === option.id ? 'border-black bg-white' : 'border-gray-200 bg-white hover:border-gray-300'}`}
+                        >
+                          <div className="text-xs font-black text-gray-900">{option.label}</div>
+                          <div className="mt-1 flex items-center gap-1.5">
+                            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: option.swatches[0] }} />
+                            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: option.swatches[1] }} />
+                            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: option.swatches[2] }} />
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

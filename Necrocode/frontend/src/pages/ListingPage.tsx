@@ -165,7 +165,7 @@ export function ListingPage({ selectedListing, handleAddToCart, navigateToHome, 
             )}
 
             <div className="absolute top-4 left-4 flex gap-2">
-               <span className="bg-white/90 backdrop-blur-sm text-gray-800 px-3 py-1.5 rounded-lg text-xs font-extrabold uppercase tracking-wider shadow-sm">
+               <span className="listing-category-chip bg-white/90 backdrop-blur-sm text-gray-800 px-3 py-1.5 rounded-lg text-xs font-extrabold uppercase tracking-wider shadow-sm">
                  {selectedListing.category || 'Проект'}
                </span>
             </div>
@@ -195,23 +195,23 @@ export function ListingPage({ selectedListing, handleAddToCart, navigateToHome, 
           </div>
 
           {/* Guarantees Box (Below images for volume) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-            <div className="bg-emerald-50 rounded-2xl p-5 border border-emerald-100 flex gap-4 items-start h-[106px]">
-               <div className="bg-emerald-100 p-2.5 rounded-xl text-emerald-600 shrink-0">
+           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            <div className="bg-emerald-50 rounded-2xl p-5 border border-emerald-100 flex gap-4 items-start h-[106px] listing-tone-card">
+              <div className="bg-emerald-100 p-2.5 rounded-xl text-emerald-600 shrink-0 listing-tone-icon">
                   <ShieldCheck className="h-6 w-6" />
                </div>
                <div>
-                  <h4 className="font-bold text-emerald-900 mb-1">Безопасная сделка</h4>
-                  <p className="text-xs text-emerald-700 leading-relaxed font-medium">Ваши средства замораживаются до момента успешной проверки и передачи всех прав на проект.</p>
+                <h4 className="font-bold text-emerald-900 mb-1 listing-tone-title">Безопасная сделка</h4>
+                <p className="text-xs text-emerald-700 leading-relaxed font-medium listing-tone-text">Ваши средства замораживаются до момента успешной проверки и передачи всех прав на проект.</p>
                </div>
             </div>
-            <div className="bg-blue-50 rounded-2xl p-5 border border-blue-100 flex gap-4 items-start h-[106px]">
-               <div className="bg-blue-100 p-2.5 rounded-xl text-blue-600 shrink-0">
+            <div className="bg-blue-50 rounded-2xl p-5 border border-blue-100 flex gap-4 items-start h-[106px] listing-tone-card">
+              <div className="bg-blue-100 p-2.5 rounded-xl text-blue-600 shrink-0 listing-tone-icon">
                   <CheckCircle2 className="h-6 w-6" />
                </div>
                <div>
-                  <h4 className="font-bold text-blue-900 mb-1">Файлы проверены</h4>
-                  <p className="text-xs text-blue-700 leading-relaxed font-medium">Архив исходного кода прошел автоматическую антивирусную проверку платформы.</p>
+                <h4 className="font-bold text-blue-900 mb-1 listing-tone-title">Файлы проверены</h4>
+                <p className="text-xs text-blue-700 leading-relaxed font-medium listing-tone-text">Архив исходного кода прошел автоматическую антивирусную проверку платформы.</p>
                </div>
             </div>
           </div>
@@ -311,14 +311,14 @@ export function ListingPage({ selectedListing, handleAddToCart, navigateToHome, 
                   <p className="text-sm font-bold text-gray-900">{selectedListing.monetizationType}</p>
                 </div>
               )}
-              {selectedListing.revenue && (
-                 <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 text-center">
+                {selectedListing.revenue && (
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 text-center listing-metric-card">
                    <p className="text-[10px] text-emerald-600/70 uppercase tracking-widest font-black mb-1">Выручка / мес</p>
                    <p className="text-lg font-black text-emerald-700">{selectedListing.revenue} ₽</p>
                  </div>
               )}
               {selectedListing.expenses && (
-                 <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 text-center">
+                  <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 text-center listing-metric-card">
                    <p className="text-[10px] text-rose-600/70 uppercase tracking-widest font-black mb-1">Расходы / мес</p>
                    <p className="text-lg font-black text-rose-700">{selectedListing.expenses} ₽</p>
                  </div>

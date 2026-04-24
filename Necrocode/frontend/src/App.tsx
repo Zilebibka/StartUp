@@ -32,6 +32,14 @@ import type { Page, User, AuthResponse, Listing, CartItem, DeliveryMode, AppNoti
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api'
 const DEFAULT_LISTINGS: Listing[] = []
 const THEME_STORAGE_KEY = 'siteThemeMode'
+const DARK_THEME_VARIANT_STORAGE_KEY = 'siteDarkThemeVariant'
+
+type DarkThemeVariant = 'mint' | 'sage' | 'teal'
+  | 'amber'
+  | 'slate'
+  | 'coral'
+  | 'lavender'
+  | 'rose'
 
 const toDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -111,6 +119,22 @@ function App() {
     const saved = localStorage.getItem(THEME_STORAGE_KEY)
     return saved === 'dark' ? 'dark' : 'light'
   })
+  const [darkThemeVariant, setDarkThemeVariant] = useState<DarkThemeVariant>(() => {
+    const saved = localStorage.getItem(DARK_THEME_VARIANT_STORAGE_KEY)
+    if (
+      saved === 'mint' ||
+      saved === 'sage' ||
+      saved === 'teal' ||
+      saved === 'amber' ||
+      saved === 'slate' ||
+      saved === 'coral' ||
+      saved === 'lavender' ||
+      saved === 'rose'
+    ) {
+      return saved
+    }
+    return 'sage'
+  })
   
   const [notifications, setNotifications] = useState<AppNotification[]>([])
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
@@ -180,6 +204,7 @@ function App() {
 
   const [loginForm, setLoginForm] = useState({ login: '', password: '' })
   const [registerForm, setRegisterForm] = useState({ login: '', email: '', displayName: '', password: '' })
+  const [isRegisterSubmitting, setIsRegisterSubmitting] = useState(false)
   const [registerCode, setRegisterCode] = useState('')
   const [pendingRegisterLogin, setPendingRegisterLogin] = useState('')
 
@@ -217,8 +242,10 @@ function App() {
 
   useEffect(() => {
     document.documentElement.classList.toggle('theme-dark', themeMode === 'dark')
+    document.documentElement.setAttribute('data-dark-theme', darkThemeVariant)
     localStorage.setItem(THEME_STORAGE_KEY, themeMode)
-  }, [themeMode])
+    localStorage.setItem(DARK_THEME_VARIANT_STORAGE_KEY, darkThemeVariant)
+  }, [themeMode, darkThemeVariant])
 
   useEffect(() => {
     const audio = new Audio('/sounds/notification.mp3')
@@ -466,6 +493,9 @@ function App() {
 
   const handleRegister = async (e: FormEvent) => {
     e.preventDefault()
+    if (isRegisterSubmitting) return
+
+    setIsRegisterSubmitting(true)
     setError('')
     setSuccessMessage('')
 
@@ -485,9 +515,11 @@ function App() {
       const data = (await res.json()) as { login?: string; message?: string }
       setPendingRegisterLogin(data.login ?? registerForm.login)
       setRegisterCode('')
-      setSuccessMessage('Код подтверждения отправлен на email. Введите его ниже, чтобы завершить регистрацию.')
+      setSuccessMessage('Код подтверждения отправлен на email. Введите его в открывшемся окне, чтобы завершить регистрацию.')
     } catch {
       setError('Сервер недоступен. Проверьте, что стек запущен, и попробуйте снова.')
+    } finally {
+      setIsRegisterSubmitting(false)
     }
   }
 
@@ -1004,7 +1036,6 @@ function App() {
       setSellImages([])
       setCodeFile(null)
       setError('')
-      setSuccessMessage('Проект опубликован.')
       navigate('/')
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Не удалось опубликовать проект.'
@@ -1348,6 +1379,7 @@ function App() {
               registerForm={registerForm}
               setRegisterForm={setRegisterForm}
               handleRegister={handleRegister}
+              isRegisterSubmitting={isRegisterSubmitting}
               registerCode={registerCode}
               setRegisterCode={setRegisterCode}
               pendingRegisterLogin={pendingRegisterLogin}
@@ -1399,6 +1431,8 @@ function App() {
               onConfirmEmailChange={handleConfirmEmailChange}
               themeMode={themeMode}
               onThemeModeChange={setThemeMode}
+              darkThemeVariant={darkThemeVariant}
+              onDarkThemeVariantChange={setDarkThemeVariant}
             />
           )}
         </AnimatePresence>

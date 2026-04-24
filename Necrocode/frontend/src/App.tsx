@@ -205,12 +205,12 @@ function App() {
     )
   }, [listings, searchQuery])
 
-  const cartCount = useMemo(() => cart.reduce((sum, item) => sum + item.qty, 0), [cart])
+  const cartCount = useMemo(() => cart.length, [cart])
   const cartTotal = useMemo(
     () =>
       cart.reduce((sum, item) => {
         const listing = listings.find((entry) => entry.id === item.listingId)
-        return sum + (listing ? listing.price * item.qty : 0)
+        return sum + (listing ? listing.price : 0)
       }, 0),
     [cart, listings],
   )
@@ -391,7 +391,7 @@ function App() {
     if (!res.ok) throw new Error('failed to load cart')
 
     const data = (await res.json()) as CartItem[]
-    setCart(data)
+    setCart(data.map((item) => ({ ...item, qty: 1 })))
   }
 
   useEffect(() => {
@@ -739,7 +739,6 @@ function App() {
 
   const requireAuth = () => {
     if (currentUser) return true
-    setError('Чтобы использовать эту функцию, зарегистрируйтесь или войдите в аккаунт.')
     navigate('/register')
     return false
   }
@@ -767,26 +766,28 @@ function App() {
     if (!requireAuth()) return
 
     try {
+      const listing = listings.find((item) => item.id === listingId)
+      if (!listing) {
+        setError('Лот не найден')
+        return
+      }
+
+      if (currentUser && listing.ownerLogin.toLowerCase() === currentUser.login.toLowerCase()) {
+        setError('Нельзя добавлять в корзину собственный проект')
+        return
+      }
+
       const existing = cart.find((item) => item.listingId === listingId)
-      const qty = Math.min((existing?.qty ?? 0) + 1, 99)
-      await saveCartItem(listingId, qty)
+      if (existing) {
+        setError('Этот проект уже добавлен в корзину')
+        return
+      }
+
+      await saveCartItem(listingId, 1)
       await loadCartFromServer()
       setError('')
     } catch {
       setError('Не удалось обновить корзину')
-    }
-  }
-
-  const handleQtyChange = async (listingId: number, delta: number) => {
-    try {
-      const existing = cart.find((item) => item.listingId === listingId)
-      if (!existing) return
-
-      const nextQty = Math.max(1, Math.min(99, existing.qty + delta))
-      await saveCartItem(listingId, nextQty)
-      await loadCartFromServer()
-    } catch {
-      setError('Не удалось изменить количество в корзине')
     }
   }
 
@@ -1285,7 +1286,6 @@ function App() {
               cart={cart}
               listings={listings}
               cartTotal={cartTotal}
-              handleQtyChange={handleQtyChange}
               handleRemoveCartItem={handleRemoveCartItem}
             />
           )}

@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS users (
 	public_id VARCHAR(32) UNIQUE NOT NULL,
 	login VARCHAR(64) UNIQUE NOT NULL,
 	email VARCHAR(255),
+	email_verified BOOLEAN NOT NULL DEFAULT FALSE,
 	display_name VARCHAR(100) NOT NULL DEFAULT '',
 	avatar_data_url TEXT NOT NULL DEFAULT '',
 	birth_date DATE,
@@ -50,8 +51,12 @@ CREATE TABLE IF NOT EXISTS users (
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(100) NOT NULL DEFAULT '';
 	ALTER TABLE users ADD COLUMN IF NOT EXISTS public_id VARCHAR(32);
+	ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN;
 	ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_data_url TEXT NOT NULL DEFAULT '';
 	ALTER TABLE users ADD COLUMN IF NOT EXISTS birth_date DATE;
+	UPDATE users SET email_verified = TRUE WHERE email_verified IS NULL;
+	ALTER TABLE users ALTER COLUMN email_verified SET DEFAULT FALSE;
+	ALTER TABLE users ALTER COLUMN email_verified SET NOT NULL;
 	UPDATE users SET public_id = 'nc_' || id WHERE public_id IS NULL OR public_id = '';
 CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique_idx ON users(email) WHERE email IS NOT NULL;
 	CREATE UNIQUE INDEX IF NOT EXISTS users_public_id_unique_idx ON users(public_id);
@@ -133,6 +138,35 @@ CREATE INDEX IF NOT EXISTS cart_items_user_id_idx ON cart_items(user_id);
 
 	if _, err := db.Exec(cartItemsTableQuery); err != nil {
 		return fmt.Errorf("create cart_items table: %w", err)
+	}
+
+	if err := ensureEmailCodesTable(db); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func ensureEmailCodesTable(db *sql.DB) error {
+	const emailCodesTableQuery = `
+CREATE TABLE IF NOT EXISTS email_codes (
+	id BIGSERIAL PRIMARY KEY,
+	user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+	email VARCHAR(255) NOT NULL,
+	purpose VARCHAR(32) NOT NULL,
+	code_hash TEXT NOT NULL,
+	attempt_count INTEGER NOT NULL DEFAULT 0,
+	expires_at TIMESTAMPTZ NOT NULL,
+	consumed_at TIMESTAMPTZ,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS email_codes_user_purpose_idx ON email_codes(user_id, purpose, created_at DESC);
+CREATE INDEX IF NOT EXISTS email_codes_expires_at_idx ON email_codes(expires_at);
+`
+
+	if _, err := db.Exec(emailCodesTableQuery); err != nil {
+		return fmt.Errorf("create email_codes table: %w", err)
 	}
 
 	return nil

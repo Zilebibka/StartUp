@@ -28,6 +28,8 @@ interface SettingsPageProps {
     displayName?: string
   }) => Promise<void>
   onAccountUpdated: (user: User) => void
+  onRequestEmailChangeCode: (newEmail: string) => Promise<void>
+  onConfirmEmailChange: (newEmail: string, code: string) => Promise<void>
   themeMode: 'light' | 'dark'
   onThemeModeChange: (mode: 'light' | 'dark') => void
 }
@@ -53,7 +55,7 @@ const defaultNotificationState: NotificationState = {
 
 const isDataImage = (value: string) => value.startsWith('data:image/')
 
-export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUpdated, themeMode, onThemeModeChange }: SettingsPageProps) {
+export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUpdated, onRequestEmailChangeCode, onConfirmEmailChange, themeMode, onThemeModeChange }: SettingsPageProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile')
   const [birthDate, setBirthDate] = useState(() => {
     const raw = localStorage.getItem(PROFILE_SETTINGS_KEY_PREFIX + currentUser.login)
@@ -72,9 +74,13 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
   const [displayNameError, setDisplayNameError] = useState('')
   const [isSavingDisplayName, setIsSavingDisplayName] = useState(false)
 
-  const [securityEmail, setSecurityEmail] = useState(currentUser.email ?? '')
+  const [securityMode, setSecurityMode] = useState<'password' | 'email'>('password')
   const [securityCurrentPassword, setSecurityCurrentPassword] = useState('')
   const [securityNewPassword, setSecurityNewPassword] = useState('')
+  const [securityNewEmail, setSecurityNewEmail] = useState('')
+  const [securityEmailCode, setSecurityEmailCode] = useState('')
+  const [isSendingEmailCode, setIsSendingEmailCode] = useState(false)
+  const [emailCodeSent, setEmailCodeSent] = useState(false)
   const [securityMessage, setSecurityMessage] = useState('')
   const [securityError, setSecurityError] = useState('')
   const [isSavingSecurity, setIsSavingSecurity] = useState(false)
@@ -208,17 +214,17 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
     }
   }
 
-  const handleSaveSecurity = async () => {
+  const handleSavePassword = async () => {
     setSecurityMessage('')
     setSecurityError('')
 
-    if (!securityEmail.trim() && !securityNewPassword.trim()) {
-      setSecurityError('Заполните email или новый пароль.')
+    if (!securityNewPassword.trim()) {
+      setSecurityError('Введите новый пароль.')
       return
     }
 
     if (!securityCurrentPassword.trim()) {
-      setSecurityError('Для изменения email/пароля нужен текущий пароль.')
+      setSecurityError('Для изменения пароля нужен текущий пароль.')
       return
     }
 
@@ -226,15 +232,61 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
     try {
       await onUpdateAccountSettings({
         currentPassword: securityCurrentPassword.trim(),
-        email: securityEmail.trim(),
         newPassword: securityNewPassword.trim(),
       })
-      onAccountUpdated({ ...currentUser, email: securityEmail.trim() || currentUser.email })
-      setSecurityMessage('Настройки безопасности обновлены.')
+      setSecurityMessage('Пароль успешно обновлен.')
       setSecurityCurrentPassword('')
       setSecurityNewPassword('')
     } catch (err) {
-      setSecurityError(err instanceof Error ? err.message : 'Не удалось обновить безопасность.')
+      setSecurityError(err instanceof Error ? err.message : 'Не удалось изменить пароль.')
+    } finally {
+      setIsSavingSecurity(false)
+    }
+  }
+
+  const handleSendEmailCode = async () => {
+    setSecurityMessage('')
+    setSecurityError('')
+
+    if (!securityNewEmail.trim()) {
+      setSecurityError('Введите новый email.')
+      return
+    }
+
+    setIsSendingEmailCode(true)
+    try {
+      await onRequestEmailChangeCode(securityNewEmail.trim())
+      setEmailCodeSent(true)
+      setSecurityMessage('Код подтверждения отправлен на новый email.')
+    } catch (err) {
+      setSecurityError(err instanceof Error ? err.message : 'Не удалось отправить код.')
+    } finally {
+      setIsSendingEmailCode(false)
+    }
+  }
+
+  const handleConfirmEmail = async () => {
+    setSecurityMessage('')
+    setSecurityError('')
+
+    if (!securityNewEmail.trim()) {
+      setSecurityError('Введите новый email.')
+      return
+    }
+    if (securityEmailCode.trim().length !== 6) {
+      setSecurityError('Введите 6-значный код из письма.')
+      return
+    }
+
+    setIsSavingSecurity(true)
+    try {
+      await onConfirmEmailChange(securityNewEmail.trim(), securityEmailCode.trim())
+      onAccountUpdated({ ...currentUser, email: securityNewEmail.trim() })
+      setSecurityMessage('Email успешно обновлен.')
+      setSecurityEmailCode('')
+      setEmailCodeSent(false)
+    } catch (err) {
+      setSecurityError(err instanceof Error ? err.message : 'Не удалось подтвердить смену email.')
     } finally {
       setIsSavingSecurity(false)
     }
@@ -410,46 +462,110 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
           {activeTab === 'security' && (
             <div className="space-y-6">
               <h2 className="text-xl font-black text-gray-900">Безопасность</h2>
-              <div className="rounded-2xl border border-gray-100 bg-gray-50 p-5 space-y-4">
-                <div>
-                  <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1.5">Новый Email</label>
-                  <input
-                    type="email"
-                    value={securityEmail}
-                    onChange={(e) => setSecurityEmail(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1.5">Текущий пароль</label>
-                  <input
-                    type="password"
-                    value={securityCurrentPassword}
-                    onChange={(e) => setSecurityCurrentPassword(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                    placeholder="Обязателен для email/пароля"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1.5">Новый пароль</label>
-                  <input
-                    type="password"
-                    value={securityNewPassword}
-                    onChange={(e) => setSecurityNewPassword(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                    placeholder="Минимум 8 символов"
-                  />
-                </div>
-
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <button
-                  onClick={handleSaveSecurity}
-                  disabled={isSavingSecurity}
-                  className="rounded-xl bg-black px-5 py-2.5 text-sm font-bold text-white hover:bg-gray-800 disabled:opacity-60"
+                  type="button"
+                  onClick={() => {
+                    setSecurityMode('password')
+                    setSecurityError('')
+                    setSecurityMessage('')
+                  }}
+                  className={`rounded-xl px-4 py-2.5 text-sm font-bold transition-colors ${securityMode === 'password' ? 'bg-black text-white' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
                 >
-                  {isSavingSecurity ? 'Сохраняем...' : 'Обновить безопасность'}
+                  Поменять пароль
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSecurityMode('email')
+                    setSecurityError('')
+                    setSecurityMessage('')
+                  }}
+                  className={`rounded-xl px-4 py-2.5 text-sm font-bold transition-colors ${securityMode === 'email' ? 'bg-black text-white' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
+                >
+                  Поменять email
+                </button>
+              </div>
+
+              <div className="rounded-2xl border border-gray-100 bg-gray-50 p-5 space-y-4">
+                {securityMode === 'password' && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1.5">Текущий пароль</label>
+                      <input
+                        type="password"
+                        value={securityCurrentPassword}
+                        onChange={(e) => setSecurityCurrentPassword(e.target.value)}
+                        className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                        placeholder="Введите текущий пароль"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1.5">Новый пароль</label>
+                      <input
+                        type="password"
+                        value={securityNewPassword}
+                        onChange={(e) => setSecurityNewPassword(e.target.value)}
+                        className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                        placeholder="Минимум 8 символов"
+                      />
+                    </div>
+
+                    <button
+                      onClick={handleSavePassword}
+                      disabled={isSavingSecurity}
+                      className="rounded-xl bg-black px-5 py-2.5 text-sm font-bold text-white hover:bg-gray-800 disabled:opacity-60"
+                    >
+                      {isSavingSecurity ? 'Сохраняем...' : 'Поменять пароль'}
+                    </button>
+                  </>
+                )}
+
+                {securityMode === 'email' && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1.5">Новый Email</label>
+                      <input
+                        type="email"
+                        value={securityNewEmail}
+                        onChange={(e) => setSecurityNewEmail(e.target.value)}
+                        className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                        placeholder="example@mail.com"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => { void handleSendEmailCode() }}
+                      disabled={isSendingEmailCode}
+                      className="rounded-xl bg-gray-100 px-5 py-2.5 text-sm font-bold text-gray-900 hover:bg-gray-200 disabled:opacity-60"
+                    >
+                      {isSendingEmailCode ? 'Отправляем код...' : 'Отправить код'}
+                    </button>
+
+                    <div>
+                      <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1.5">Код из письма</label>
+                      <input
+                        value={securityEmailCode}
+                        onChange={(e) => setSecurityEmailCode(e.target.value.replace(/\D+/g, '').slice(0, 6))}
+                        className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm tracking-[0.3em] focus:outline-none focus:ring-2 focus:ring-black"
+                        placeholder="000000"
+                        inputMode="numeric"
+                        maxLength={6}
+                        disabled={!emailCodeSent}
+                      />
+                    </div>
+
+                    <button
+                      onClick={() => { void handleConfirmEmail() }}
+                      disabled={isSavingSecurity || !emailCodeSent}
+                      className="rounded-xl bg-black px-5 py-2.5 text-sm font-bold text-white hover:bg-gray-800 disabled:opacity-60"
+                    >
+                      {isSavingSecurity ? 'Сохраняем...' : 'Подтвердить и сменить email'}
+                    </button>
+                  </>
+                )}
 
                 {securityError && <p className="text-xs text-red-600">{securityError}</p>}
                 {securityMessage && <p className="text-xs text-emerald-600">{securityMessage}</p>}
@@ -542,7 +658,7 @@ function ToggleItem({ label, checked, onChange }: { label: string; checked: bool
       >
         <span
           className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.25)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform ${
-            checked ? 'translate-x-0' : 'translate-x-5'
+            checked ? 'translate-x-5' : 'translate-x-0'
           }`}
         />
       </button>

@@ -10,13 +10,15 @@ import (
 	"strings"
 
 	"Necrocode/api/models"
+	"Necrocode/api/services"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type Handler struct {
-	DB *sql.DB
+	DB         *sql.DB
+	SMTPConfig services.SMTPConfig
 }
 
 func (h Handler) Register(w http.ResponseWriter, r *http.Request) {
@@ -41,8 +43,8 @@ func (h Handler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	const query = `
-		INSERT INTO users (public_id, login, email, display_name, password_hash)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO users (public_id, login, email, display_name, password_hash, email_verified)
+		VALUES ($1, $2, $3, $4, $5, FALSE)
 		RETURNING id, created_at
 	`
 
@@ -81,10 +83,16 @@ func (h Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.issueSession(w, user); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to create session")
+	if err := h.createAndSendEmailCode(user.ID, user.Email, codePurposeVerifyEmail); err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to send verification code")
 		return
 	}
+
+	writeJSON(w, http.StatusAccepted, map[string]any{
+		"message": "verification code sent",
+		"login":   user.Login,
+		"email":   user.Email,
+	})
 }
 
 func isUniqueViolation(err error) bool {

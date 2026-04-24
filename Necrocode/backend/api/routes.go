@@ -10,6 +10,7 @@ import (
 	marketplacehandler "Necrocode/api/handlers/MarketplaceHandler"
 	userhandler "Necrocode/api/handlers/UserHandler"
 	"Necrocode/api/middlewares"
+	"Necrocode/api/services"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
@@ -23,7 +24,7 @@ func NewRouter(db *sql.DB) http.Handler {
 	r.Use(chimiddleware.Logger)
 	r.Use(chimiddleware.Recoverer)
 
-	authHandler := authhandler.Handler{DB: db}
+	authHandler := authhandler.Handler{DB: db, SMTPConfig: services.LoadSMTPConfigFromEnv()}
 	marketHandler := marketplacehandler.Handler{DB: db}
 	userHandler := userhandler.Handler{DB: db}
 
@@ -41,7 +42,12 @@ func NewRouter(db *sql.DB) http.Handler {
 
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/register", authHandler.Register)
+			r.Post("/register/verify", authHandler.VerifyRegisterCode)
+			r.Post("/register/resend", authHandler.ResendRegisterCode)
 			r.Post("/login", authHandler.Login)
+			r.Post("/password/forgot", authHandler.ForgotPassword)
+			r.Post("/password/verify-code", authHandler.VerifyResetPasswordCode)
+			r.Post("/password/reset", authHandler.ResetPasswordByCode)
 			r.Post("/refresh", authHandler.Refresh)
 			r.Post("/logout", authHandler.Logout)
 		})
@@ -55,6 +61,8 @@ func NewRouter(db *sql.DB) http.Handler {
 			r.Post("/cart/items", marketHandler.SetCartItem)
 			r.Delete("/cart/items/{listingID}", marketHandler.RemoveCartItem)
 			r.Put("/me/settings", authHandler.UpdateSettings)
+			r.Post("/me/email/change/request", authHandler.RequestEmailChangeCode)
+			r.Post("/me/email/change/confirm", authHandler.ConfirmEmailChange)
 
 			r.Get("/me", func(w http.ResponseWriter, r *http.Request) {
 				userID, _ := r.Context().Value(middlewares.ContextUserIDKey).(int64)
@@ -66,12 +74,12 @@ func NewRouter(db *sql.DB) http.Handler {
 				`
 
 				var (
-					publicID    string
-					login       string
-					email       string
-					displayName string
+					publicID      string
+					login         string
+					email         string
+					displayName   string
 					avatarDataURL string
-					birthDate sql.NullTime
+					birthDate     sql.NullTime
 				)
 				if err := db.QueryRow(profileQuery, userID).Scan(&publicID, &login, &email, &displayName, &avatarDataURL, &birthDate); err != nil {
 					w.Header().Set("Content-Type", "application/json")
@@ -87,13 +95,13 @@ func NewRouter(db *sql.DB) http.Handler {
 
 				w.Header().Set("Content-Type", "application/json")
 				_ = json.NewEncoder(w).Encode(map[string]any{
-					"id":          userID,
-					"publicId":    publicID,
-					"login":       login,
-					"email":       email,
-					"displayName": displayName,
+					"id":            userID,
+					"publicId":      publicID,
+					"login":         login,
+					"email":         email,
+					"displayName":   displayName,
 					"avatarDataUrl": avatarDataURL,
-					"birthDate":   birthDateStr,
+					"birthDate":     birthDateStr,
 				})
 			})
 		})

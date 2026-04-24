@@ -180,6 +180,13 @@ function App() {
 
   const [loginForm, setLoginForm] = useState({ login: '', password: '' })
   const [registerForm, setRegisterForm] = useState({ login: '', email: '', displayName: '', password: '' })
+  const [registerCode, setRegisterCode] = useState('')
+  const [pendingRegisterLogin, setPendingRegisterLogin] = useState('')
+
+  const [resetIdentifier, setResetIdentifier] = useState('')
+  const [resetCode, setResetCode] = useState('')
+  const [resetNewPassword, setResetNewPassword] = useState('')
+  const [resetStep, setResetStep] = useState<'request' | 'code' | 'password'>('request')
 
   const selectedListing = useMemo(
     () => listings.find((item) => item.id === selectedListingId) ?? null,
@@ -475,9 +482,70 @@ function App() {
         return
       }
 
+      const data = (await res.json()) as { login?: string; message?: string }
+      setPendingRegisterLogin(data.login ?? registerForm.login)
+      setRegisterCode('')
+      setSuccessMessage('Код подтверждения отправлен на email. Введите его ниже, чтобы завершить регистрацию.')
+    } catch {
+      setError('Сервер недоступен. Проверьте, что стек запущен, и попробуйте снова.')
+    }
+  }
+
+  const handleVerifyRegisterCode = async (e: FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setSuccessMessage('')
+
+    if (!pendingRegisterLogin.trim()) {
+      setError('Сначала зарегистрируйтесь, чтобы получить код подтверждения.')
+      return
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/auth/register/verify`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ login: pendingRegisterLogin.trim(), code: registerCode.trim() }),
+      })
+
+      if (!res.ok) {
+        setError(await readApiErrorMessage(res, 'Не удалось подтвердить email'))
+        return
+      }
+
       const data = (await res.json()) as AuthResponse
       saveSession(data)
+      setPendingRegisterLogin('')
+      setRegisterCode('')
       navigate(ownProfilePath(data.user))
+    } catch {
+      setError('Сервер недоступен. Проверьте, что стек запущен, и попробуйте снова.')
+    }
+  }
+
+  const handleResendRegisterCode = async () => {
+    setError('')
+    setSuccessMessage('')
+
+    if (!pendingRegisterLogin.trim()) {
+      setError('Нечего повторно отправлять: сначала зарегистрируйтесь.')
+      return
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/auth/register/resend`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ login: pendingRegisterLogin.trim() }),
+      })
+      if (!res.ok) {
+        setError(await readApiErrorMessage(res, 'Не удалось отправить код повторно'))
+        return
+      }
+
+      setSuccessMessage('Новый код подтверждения отправлен на email.')
     } catch {
       setError('Сервер недоступен. Проверьте, что стек запущен, и попробуйте снова.')
     }
@@ -507,6 +575,133 @@ function App() {
     } catch {
       setError('Сервер недоступен. Проверьте, что стек запущен, и попробуйте снова.')
     }
+  }
+
+  const handleSendResetCode = async (e: FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setSuccessMessage('')
+
+    if (!resetIdentifier.trim()) {
+      setError('Введите логин или email.')
+      return
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/auth/password/forgot`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: resetIdentifier.trim() }),
+      })
+      if (!res.ok) {
+        setError(await readApiErrorMessage(res, 'Не удалось отправить код сброса'))
+        return
+      }
+
+      setResetStep('code')
+      setSuccessMessage('Если аккаунт существует, код для сброса отправлен на привязанный email.')
+    } catch {
+      setError('Сервер недоступен. Проверьте, что стек запущен, и попробуйте снова.')
+    }
+  }
+
+  const handleVerifyResetCode = async (e: FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setSuccessMessage('')
+
+    if (!resetIdentifier.trim() || !resetCode.trim()) {
+      setError('Введите логин/email и код из письма.')
+      return
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/auth/password/verify-code`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: resetIdentifier.trim(), code: resetCode.trim() }),
+      })
+      if (!res.ok) {
+        setError(await readApiErrorMessage(res, 'Неверный код подтверждения'))
+        return
+      }
+
+      setResetStep('password')
+      setSuccessMessage('Код подтверждён. Теперь введите новый пароль.')
+    } catch {
+      setError('Сервер недоступен. Проверьте, что стек запущен, и попробуйте снова.')
+    }
+  }
+
+  const handleResetPassword = async (e: FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setSuccessMessage('')
+
+    if (!resetIdentifier.trim() || !resetCode.trim() || !resetNewPassword.trim()) {
+      setError('Заполните логин/email, код и новый пароль.')
+      return
+    }
+
+    if (resetStep !== 'password') {
+      setError('Сначала запросите код для восстановления пароля.')
+      return
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/auth/password/reset`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier: resetIdentifier.trim(),
+          code: resetCode.trim(),
+          newPassword: resetNewPassword,
+        }),
+      })
+      if (!res.ok) {
+        setError(await readApiErrorMessage(res, 'Не удалось сбросить пароль'))
+        return
+      }
+
+      setLoginForm((prev) => ({ ...prev, login: resetIdentifier.trim() }))
+      setResetCode('')
+      setResetNewPassword('')
+      setResetStep('request')
+      setSuccessMessage('Пароль обновлён. Теперь войдите с новым паролем.')
+    } catch {
+      setError('Сервер недоступен. Проверьте, что стек запущен, и попробуйте снова.')
+    }
+  }
+
+  const handleRequestEmailChangeCode = async (newEmail: string) => {
+    const res = await fetchWithAuth('/me/email/change/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newEmail }),
+    })
+
+    if (!res.ok) {
+      const message = await readApiErrorMessage(res, 'Не удалось отправить код для смены email')
+      throw new Error(message)
+    }
+  }
+
+  const handleConfirmEmailChange = async (newEmail: string, code: string) => {
+    const res = await fetchWithAuth('/me/email/change/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newEmail, code }),
+    })
+
+    if (!res.ok) {
+      const message = await readApiErrorMessage(res, 'Не удалось сменить email')
+      throw new Error(message)
+    }
+
+    setCurrentUser((prev) => (prev ? { ...prev, email: newEmail } : prev))
   }
 
   const handleEditListing = (listing: Listing) => {
@@ -1149,11 +1344,35 @@ function App() {
           )}
 
           {currentPage === 'register' && (
-            <RegisterPage registerForm={registerForm} setRegisterForm={setRegisterForm} handleRegister={handleRegister} />
+            <RegisterPage
+              registerForm={registerForm}
+              setRegisterForm={setRegisterForm}
+              handleRegister={handleRegister}
+              registerCode={registerCode}
+              setRegisterCode={setRegisterCode}
+              pendingRegisterLogin={pendingRegisterLogin}
+              handleVerifyRegisterCode={handleVerifyRegisterCode}
+              handleResendRegisterCode={handleResendRegisterCode}
+            />
           )}
 
           {currentPage === 'login' && (
-            <LoginPage loginForm={loginForm} setLoginForm={setLoginForm} handleLogin={handleLogin} />
+            <LoginPage
+              loginForm={loginForm}
+              setLoginForm={setLoginForm}
+              handleLogin={handleLogin}
+              resetIdentifier={resetIdentifier}
+              setResetIdentifier={setResetIdentifier}
+              resetCode={resetCode}
+              setResetCode={setResetCode}
+              resetNewPassword={resetNewPassword}
+              setResetNewPassword={setResetNewPassword}
+              resetStep={resetStep}
+              setResetStep={setResetStep}
+              handleSendResetCode={handleSendResetCode}
+              handleVerifyResetCode={handleVerifyResetCode}
+              handleResetPassword={handleResetPassword}
+            />
           )}
 
           {currentPage === 'profile' && (
@@ -1176,6 +1395,8 @@ function App() {
               currentUser={currentUser}
               onUpdateAccountSettings={handleAccountSettingsUpdate}
               onAccountUpdated={(user) => setCurrentUser(user)}
+              onRequestEmailChangeCode={handleRequestEmailChangeCode}
+              onConfirmEmailChange={handleConfirmEmailChange}
               themeMode={themeMode}
               onThemeModeChange={setThemeMode}
             />

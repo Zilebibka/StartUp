@@ -8,9 +8,14 @@ interface RegisterPageProps {
   registerForm: any;
   setRegisterForm: React.Dispatch<React.SetStateAction<any>>;
   handleRegister: (e: FormEvent) => Promise<void>;
+  registerCode: string;
+  setRegisterCode: React.Dispatch<React.SetStateAction<string>>;
+  pendingRegisterLogin: string;
+  handleVerifyRegisterCode: (e: FormEvent) => Promise<void>;
+  handleResendRegisterCode: () => Promise<void>;
 }
 
-export function RegisterPage({ registerForm, setRegisterForm, handleRegister }: RegisterPageProps) {
+export function RegisterPage({ registerForm, setRegisterForm, handleRegister, registerCode, setRegisterCode, pendingRegisterLogin, handleVerifyRegisterCode, handleResendRegisterCode }: RegisterPageProps) {
   return (
     <motion.section key="register" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="mx-auto max-w-md rounded-3xl border border-gray-100 p-5 sm:p-8 bg-white shadow-xl shadow-gray-900/5 relative overflow-hidden">
       <div className="absolute top-0 right-0 w-40 h-40 bg-gray-50 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
@@ -34,6 +39,37 @@ export function RegisterPage({ registerForm, setRegisterForm, handleRegister }: 
         </div>
         <button className="w-full rounded-xl bg-gray-900 hover:bg-black py-3.5 text-white font-bold shadow-lg shadow-gray-900/20 transition-all active:scale-[0.98] mt-2" type="submit">Создать аккаунт</button>
       </form>
+
+      <div className="mt-6 border-t border-gray-100 pt-5">
+        <h2 className="text-sm font-extrabold uppercase tracking-wider text-gray-700">Подтверждение почты</h2>
+        <p className="mt-1 text-xs text-gray-500">После регистрации введите 6-значный код из письма.</p>
+        <form className="mt-3 space-y-3" onSubmit={handleVerifyRegisterCode}>
+          <input
+            className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all font-medium text-gray-900 bg-gray-50/50 focus:bg-white"
+            placeholder="Логин"
+            value={pendingRegisterLogin}
+            readOnly
+          />
+          <input
+            className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all font-medium text-gray-900 bg-gray-50/50 focus:bg-white tracking-[0.3em]"
+            placeholder="000000"
+            inputMode="numeric"
+            maxLength={6}
+            value={registerCode}
+            onChange={(e) => setRegisterCode(e.target.value.replace(/\D+/g, '').slice(0, 6))}
+          />
+          <button className="w-full rounded-xl bg-black hover:bg-gray-800 py-3 text-white font-bold transition-colors" type="submit">
+            Подтвердить email
+          </button>
+        </form>
+        <button
+          type="button"
+          onClick={() => { void handleResendRegisterCode() }}
+          className="mt-3 text-xs font-bold text-gray-600 hover:text-black transition-colors"
+        >
+          Отправить код повторно
+        </button>
+      </div>
     </motion.section>
   );
 }
@@ -42,9 +78,32 @@ interface LoginPageProps {
   loginForm: any;
   setLoginForm: React.Dispatch<React.SetStateAction<any>>;
   handleLogin: (e: FormEvent) => Promise<void>;
+  resetIdentifier: string;
+  setResetIdentifier: React.Dispatch<React.SetStateAction<string>>;
+  resetCode: string;
+  setResetCode: React.Dispatch<React.SetStateAction<string>>;
+  resetNewPassword: string;
+  setResetNewPassword: React.Dispatch<React.SetStateAction<string>>;
+  resetStep: 'request' | 'code' | 'password';
+  setResetStep: React.Dispatch<React.SetStateAction<'request' | 'code' | 'password'>>;
+  handleSendResetCode: (e: FormEvent) => Promise<void>;
+  handleVerifyResetCode: (e: FormEvent) => Promise<void>;
+  handleResetPassword: (e: FormEvent) => Promise<void>;
 }
 
-export function LoginPage({ loginForm, setLoginForm, handleLogin }: LoginPageProps) {
+export function LoginPage({ loginForm, setLoginForm, handleLogin, resetIdentifier, setResetIdentifier, resetCode, setResetCode, resetNewPassword, setResetNewPassword, resetStep, setResetStep, handleSendResetCode, handleVerifyResetCode, handleResetPassword }: LoginPageProps) {
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false)
+
+  const closeForgotModal = () => {
+    setIsForgotModalOpen(false)
+    setResetStep('request')
+  }
+
+  const openForgotModal = () => {
+    setIsForgotModalOpen(true)
+    setResetStep('request')
+  }
+
   return (
     <motion.section key="login" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="mx-auto max-w-md rounded-3xl border border-gray-100 p-5 sm:p-8 bg-white shadow-xl shadow-gray-900/5 relative overflow-hidden">
       <div className="absolute top-0 right-0 w-40 h-40 bg-gray-50 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
@@ -60,6 +119,110 @@ export function LoginPage({ loginForm, setLoginForm, handleLogin }: LoginPagePro
         </div>
         <button className="w-full rounded-xl bg-gray-900 hover:bg-black py-3.5 text-white font-bold shadow-lg shadow-gray-900/20 transition-all active:scale-[0.98] mt-2" type="submit">Войти в аккаунт</button>
       </form>
+
+      <div className="mt-4 text-center">
+        <button
+          type="button"
+          onClick={openForgotModal}
+          className="text-xs font-bold text-gray-500 hover:text-black transition-colors"
+        >
+          Забыли пароль?
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {isForgotModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/45 p-4 flex items-center justify-center"
+            onClick={closeForgotModal}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 14, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              transition={{ duration: 0.18 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-2xl border border-gray-100 bg-white p-5 shadow-2xl"
+            >
+              <h2 className="text-lg font-extrabold text-gray-900">Восстановление пароля</h2>
+              <p className="mt-1 text-xs text-gray-500">Шаг 1: отправьте код. Шаг 2: введите код. Шаг 3: задайте новый пароль.</p>
+
+              {resetStep === 'request' && (
+                <form className="mt-4 space-y-3" onSubmit={handleSendResetCode}>
+                  <input
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all font-medium text-gray-900 bg-gray-50/50 focus:bg-white"
+                    placeholder="Логин или email"
+                    value={resetIdentifier}
+                    onChange={(e) => setResetIdentifier(e.target.value)}
+                  />
+                  <button className="w-full rounded-xl bg-black hover:bg-gray-800 py-3 text-white font-bold transition-colors" type="submit">
+                    Отправить код
+                  </button>
+                </form>
+              )}
+
+              {resetStep === 'code' && (
+                <form className="mt-4 space-y-3" onSubmit={handleVerifyResetCode}>
+                  <input
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all font-medium text-gray-900 bg-gray-50/50 focus:bg-white"
+                    placeholder="Логин или email"
+                    value={resetIdentifier}
+                    onChange={(e) => setResetIdentifier(e.target.value)}
+                  />
+                  <input
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all font-medium text-gray-900 bg-gray-50/50 focus:bg-white tracking-[0.3em]"
+                    placeholder="Код из письма"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={resetCode}
+                    onChange={(e) => setResetCode(e.target.value.replace(/\D+/g, '').slice(0, 6))}
+                  />
+                  <button className="w-full rounded-xl bg-black hover:bg-gray-800 py-3 text-white font-bold transition-colors" type="submit">
+                    Проверить код
+                  </button>
+                </form>
+              )}
+
+              {resetStep === 'password' && (
+                <form className="mt-4 space-y-3" onSubmit={handleResetPassword}>
+                  <input
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all font-medium text-gray-900 bg-gray-50/50 focus:bg-white"
+                    type="password"
+                    placeholder="Новый пароль"
+                    value={resetNewPassword}
+                    onChange={(e) => setResetNewPassword(e.target.value)}
+                  />
+                  <button className="w-full rounded-xl bg-black hover:bg-gray-800 py-3 text-white font-bold transition-colors" type="submit">
+                    Сохранить новый пароль
+                  </button>
+                </form>
+              )}
+
+              <div className="mt-4 flex justify-end gap-2">
+                {resetStep !== 'request' && (
+                  <button
+                    type="button"
+                    onClick={() => setResetStep('request')}
+                    className="rounded-xl bg-gray-100 px-4 py-2 text-xs font-bold text-gray-800 hover:bg-gray-200 transition-colors"
+                  >
+                    Начать заново
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={closeForgotModal}
+                  className="rounded-xl bg-gray-100 px-4 py-2 text-xs font-bold text-gray-800 hover:bg-gray-200 transition-colors"
+                >
+                  Закрыть
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.section>
   );
 }

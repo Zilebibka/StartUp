@@ -1082,15 +1082,15 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 font-sans">
+    <div className="min-h-screen overflow-x-hidden bg-white text-gray-900 font-sans">
       <header className="sticky top-0 w-full bg-white border-b border-gray-200 shadow-sm z-50">
-        <div className="w-full px-3 sm:px-6 lg:px-8 min-h-16 py-2 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-4 sm:gap-8">
+        <div className="w-full px-3 sm:px-6 lg:px-8 min-h-16 py-2 flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+          <div className="flex min-w-0 items-center gap-4 sm:gap-8">
             <button
               onClick={navigateToHome}
-              className="flex items-center hover:opacity-80 transition-opacity"
+              className="flex min-w-0 items-center hover:opacity-80 transition-opacity"
             >
-              <span className="font-extrabold text-xl sm:text-2xl tracking-tight text-gray-900">
+              <span className="truncate font-extrabold text-xl sm:text-2xl tracking-tight text-gray-900">
                 NecroCode
               </span>
             </button>
@@ -1102,56 +1102,56 @@ function App() {
             </nav>
           </div>
 
-          <div className="flex items-center gap-3 sm:gap-5 text-gray-600 w-full sm:w-auto justify-between sm:justify-end">
-            <div className="flex items-center relative h-8 justify-end">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2 sm:flex-none sm:gap-4 text-gray-600">
+            <div className="flex items-center relative h-9 justify-end">
               <AnimatePresence mode="wait">
                 {isSearchOpen && (
                   <motion.input
                     autoFocus
                     key="searchInput"
                     initial={{ width: 0, opacity: 0 }}
-                    animate={{ width: 'min(68vw, 240px)', opacity: 1 }}
+                    animate={{ width: 'min(56vw, 240px)', opacity: 1 }}
                     exit={{ width: 0, opacity: 0 }}
                     transition={{ duration: 0.25 }}
                     placeholder="Поиск..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="absolute right-0 outline-none bg-gray-100 border border-gray-200 text-sm sm:text-base text-gray-800 overflow-hidden whitespace-nowrap rounded-full pl-3 sm:pl-4 pr-10 py-1.5 focus:bg-white focus:border-black shadow-inner"
+                    className="absolute right-0 max-w-[calc(100vw-2rem)] outline-none bg-gray-100 border border-gray-200 text-sm sm:text-base text-gray-800 overflow-hidden whitespace-nowrap rounded-full pl-3 sm:pl-4 pr-10 py-1.5 focus:bg-white focus:border-black shadow-inner"
                   />
                 )}
               </AnimatePresence>
-                <button onClick={() => setIsSearchOpen((prev) => !prev)} className="hover:text-black transition-colors p-1 relative z-10" title="Поиск">
+                <button onClick={() => setIsSearchOpen((prev) => !prev)} className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-gray-100 hover:text-black transition-colors relative z-10" title="Поиск">
                   <Search className="w-5 h-5" />
                 </button>
             </div>
 
-            <div className="flex items-center relative h-8">
+            <div className="flex min-w-0 items-center relative min-h-9">
               <AnimatePresence mode="wait">
                 {isWalletOpen && (
-                  <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 'auto', opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="flex items-center pr-2 sm:pr-3 overflow-hidden gap-2 sm:gap-3 whitespace-nowrap max-w-[72vw] sm:max-w-none">
-                    <span className="font-bold text-sm text-gray-900">{balance.toLocaleString('ru-RU')} ₽</span>
-                    <button onClick={() => { navigate('/topup'); setIsWalletOpen(false) }} className="flex items-center gap-1 bg-black text-white text-xs px-2.5 py-1.5 rounded-lg">
+                  <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 'auto', opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="flex min-w-0 flex-wrap items-center justify-end pr-1 sm:pr-3 overflow-hidden gap-1.5 sm:gap-3 max-w-[calc(100vw-5rem)] sm:max-w-none">
+                    <span className="max-w-24 truncate font-bold text-sm text-gray-900">{balance.toLocaleString('ru-RU')} ₽</span>
+                    <button aria-label="Пополнить баланс" onClick={() => { navigate('/topup'); setIsWalletOpen(false) }} className="inline-flex min-h-8 items-center gap-1 bg-black text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap">
                       <Plus className="w-3 h-3" /> <span className="hidden sm:inline">Пополнить</span>
                     </button>
-                    <button onClick={() => { navigate('/withdraw'); setIsWalletOpen(false) }} className="flex items-center gap-1 bg-white text-black border border-gray-300 text-xs px-2.5 py-1.5 rounded-lg">
+                    <button aria-label="Вывести средства" onClick={() => { navigate('/withdraw'); setIsWalletOpen(false) }} className="inline-flex min-h-8 items-center gap-1 bg-white text-black border border-gray-300 text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap">
                       <ArrowDownToLine className="w-3 h-3" /> <span className="hidden sm:inline">Вывести</span>
                     </button>
                   </motion.div>
                 )}
               </AnimatePresence>
-              <button onClick={() => setIsWalletOpen((prev) => !prev)} className="hover:text-black transition-colors p-1" title="Кошелек">
+              <button onClick={() => setIsWalletOpen((prev) => !prev)} className="h-9 w-9 shrink-0 inline-flex items-center justify-center rounded-full hover:bg-gray-100 hover:text-black transition-colors" title="Кошелек">
                 <Wallet className="w-5 h-5" />
               </button>
             </div>
 
-            <button onClick={() => navigate('/cart')} className="relative hover:text-black transition-colors p-1" title="Корзина">
+            <button onClick={() => navigate('/cart')} className="relative h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-gray-100 hover:text-black transition-colors" title="Корзина">
               <ShoppingCart className="w-5 h-5" />
               {cartCount > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-4 h-4 px-1 rounded-full bg-blue-600 text-white text-[10px] font-bold leading-4 text-center">{cartCount}</span>}
             </button>
 
             <button
               onClick={() => navigate('/chat')}
-              className={`relative transition-colors p-1 ${currentPage === 'chat' ? 'text-black' : 'hover:text-black'}`}
+              className={`relative h-9 w-9 inline-flex items-center justify-center rounded-full transition-colors ${currentPage === 'chat' ? 'text-black bg-gray-100' : 'hover:bg-gray-100 hover:text-black'}`}
               title="Чаты"
             >
               <MessageCircle className="w-5 h-5" />
@@ -1160,7 +1160,7 @@ function App() {
             <div className="relative hidden sm:block">
               <button 
                 onClick={() => setIsNotificationsOpen(p => !p)} 
-                className="relative hover:text-black transition-colors p-1"
+                className="relative h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-gray-100 hover:text-black transition-colors"
                 title="Уведомления"
               >
                 <Bell className="w-5 h-5" />
@@ -1243,34 +1243,34 @@ function App() {
 
             {currentUser ? (
               <>
-              <div className="hidden sm:flex items-center gap-3 ml-2 border-l pl-4 border-gray-200">
+              <div className="hidden sm:flex items-center gap-2 md:gap-3 ml-1 md:ml-2 border-l pl-3 md:pl-4 border-gray-200">
                 <button 
                   onClick={() => navigate(ownProfilePath(currentUser))}
-                  className="bg-black text-white px-4 py-1.5 rounded-full text-sm font-medium hover:bg-gray-800 transition-colors"
+                  className="max-w-36 truncate bg-black text-white px-4 py-1.5 rounded-full text-sm font-medium hover:bg-gray-800 transition-colors"
                 >
                   {currentUser.login || 'User'}
                 </button>
                 <button
                   onClick={() => navigate('/settings')}
-                  className="hover:text-black transition-colors p-1"
+                  className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-gray-100 hover:text-black transition-colors"
                   title="Настройки"
                 >
                   <Settings className="w-5 h-5" />
                 </button>
-                <button onClick={handleLogout} className="hover:text-red-500 transition-colors p-1" title="Выйти">
+                <button onClick={handleLogout} className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-gray-100 hover:text-red-500 transition-colors" title="Выйти">
                   <LogOut className="w-5 h-5" />
                 </button>
               </div>
               <button
                 onClick={() => navigate(ownProfilePath(currentUser))}
-                className="sm:hidden h-8 min-w-8 px-2 rounded-full bg-black text-white text-xs font-bold"
+                className="sm:hidden h-9 min-w-9 px-2 rounded-full bg-black text-white text-xs font-bold"
                 title="Профиль"
               >
                 {(currentUser.login?.[0] || 'U').toUpperCase()}
               </button>
               <button
                 onClick={() => navigate('/settings')}
-                className="sm:hidden h-8 min-w-8 px-2 rounded-full border border-gray-300 text-gray-700"
+                className="sm:hidden h-9 min-w-9 px-2 rounded-full border border-gray-300 text-gray-700"
                 title="Настройки"
               >
                 <Settings className="w-4 h-4" />
@@ -1280,23 +1280,26 @@ function App() {
               <>
               <div className="hidden sm:flex items-center gap-3 ml-2 border-l pl-4 border-gray-200">
                 <button onClick={() => navigate('/login')} className="text-sm font-semibold hover:text-black">Войти</button>
-                <button onClick={() => navigate('/register')} className="bg-blue-600 text-white px-4 py-1.5 rounded-full text-sm font-medium hover:bg-blue-700">Регистрация</button>
+                <button onClick={() => navigate('/register')} className="bg-black text-white px-4 py-1.5 rounded-full text-sm font-medium hover:bg-gray-800">Регистрация</button>
               </div>
-              <button onClick={() => navigate('/login')} className="sm:hidden text-xs font-semibold rounded-full border border-gray-300 px-3 py-1.5">Войти</button>
+              <div className="sm:hidden flex items-center gap-2">
+                <button onClick={() => navigate('/login')} className="min-h-9 text-xs font-semibold rounded-full border border-gray-300 px-3 py-1.5">Войти</button>
+                <button onClick={() => navigate('/register')} className="min-h-9 text-xs font-semibold rounded-full bg-black text-white px-3 py-1.5 hover:bg-gray-800">Регистрация</button>
+              </div>
               </>
             )}
           </div>
 
-          <nav className="md:hidden w-full border-t border-gray-100 pt-2 flex items-center justify-between text-xs font-semibold text-gray-700">
-            <button onClick={handleSellOpen} className="hover:text-black transition-colors">Продать</button>
-            <button onClick={navigateToHome} className="hover:text-black transition-colors">Каталог</button>
-            <button onClick={() => navigate('/help')} className="hover:text-black transition-colors">Помощь</button>
-            <button onClick={() => navigate('/about')} className="hover:text-black transition-colors">О нас</button>
+          <nav className="md:hidden grid w-full grid-cols-4 gap-1 border-t border-gray-100 pt-2 text-center text-xs font-semibold text-gray-700">
+            <button onClick={handleSellOpen} className="min-h-9 rounded-lg px-1 hover:bg-gray-100 hover:text-black transition-colors">Продать</button>
+            <button onClick={() => navigate('/catalog')} className="min-h-9 rounded-lg px-1 hover:bg-gray-100 hover:text-black transition-colors">Каталог</button>
+            <button onClick={() => navigate('/help')} className="min-h-9 rounded-lg px-1 hover:bg-gray-100 hover:text-black transition-colors">Помощь</button>
+            <button onClick={() => navigate('/about')} className="min-h-9 rounded-lg px-1 hover:bg-gray-100 hover:text-black transition-colors">О нас</button>
           </nav>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pt-8 sm:pt-10">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-8 pt-6 sm:pt-10">
         <div className="flex flex-col lg:flex-row gap-8">
           <main className="flex-1">
             <AnimatePresence mode="wait">
@@ -1566,7 +1569,7 @@ function App() {
       {/* FOOTER */}
       {currentPage === 'home' && (
       <footer className="mt-auto border-t border-gray-900 bg-black text-gray-400 py-6 px-4 sm:px-6 lg:px-8 footer-shell">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left">
           <div className="flex items-center gap-6">
             <h2 className="text-xl font-black text-white tracking-tighter cursor-pointer" onClick={navigateToHome}>
               NECRO<span className="text-gray-500">CODE</span>
@@ -1576,7 +1579,7 @@ function App() {
             </p>
           </div>
 
-          <div className="flex items-center gap-6 text-sm font-medium">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm font-medium">
             <button onClick={() => navigate('/sell')} className="hover:text-white transition-colors footer-link">Продать</button>
             <button onClick={() => navigate('/about')} className="hover:text-white transition-colors footer-link">О нас</button>
             <button onClick={() => navigate('/help')} className="hover:text-white transition-colors footer-link">Помощь</button>

@@ -27,7 +27,7 @@ export function SellPage({
   return (
     <motion.section key="sell" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="max-w-4xl mx-auto pb-12">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900">{editingListingId ? 'Изменение объявления' : 'Разместить проект на продажу'}</h1>
+        <h1 className="break-words text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">{editingListingId ? 'Изменение объявления' : 'Разместить проект на продажу'}</h1>
         <p className="text-gray-500 mt-2 text-sm sm:text-base">Тщательно заполните все поля, чтобы привлечь больше потенциальных покупателей и повысить доверие к вашему проекту.</p>
       </div>
 
@@ -35,9 +35,9 @@ export function SellPage({
         
         {/* Основная информация */}
         <div className="bg-white border border-gray-200 rounded-2xl p-5 sm:p-7 shadow-sm">
-          <div className="flex items-center gap-2 mb-5 pb-3 border-b border-gray-100">
+          <div className="flex min-w-0 items-center gap-2 mb-5 pb-3 border-b border-gray-100">
             <Info className="h-5 w-5 text-gray-500" />
-            <h2 className="text-lg font-semibold text-gray-800">Основная информация</h2>
+            <h2 className="break-words text-lg font-semibold text-gray-800">Основная информация</h2>
           </div>
           <div className="space-y-5">
             <div className="space-y-2">
@@ -68,9 +68,9 @@ export function SellPage({
 
         {/* Технические детали */}
         <div className="bg-white border border-gray-200 rounded-2xl p-5 sm:p-7 shadow-sm">
-          <div className="flex items-center gap-2 mb-5 pb-3 border-b border-gray-100">
+          <div className="flex min-w-0 items-center gap-2 mb-5 pb-3 border-b border-gray-100">
             <Settings2 className="h-5 w-5 text-gray-500" />
-            <h2 className="text-lg font-semibold text-gray-800">Технические детали</h2>
+            <h2 className="break-words text-lg font-semibold text-gray-800">Технические детали</h2>
           </div>
           <div className="space-y-5">
             <div className="space-y-2">
@@ -86,7 +86,7 @@ export function SellPage({
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700">Архив с проектом (zip/rar/7z)</label>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                  <button type="button" onClick={() => codeFileInputRef.current?.click()} className="rounded-xl border border-gray-300 bg-gray-50 hover:bg-gray-100 font-medium px-4 py-2.5 text-sm transition-colors whitespace-nowrap">
+                  <button type="button" onClick={() => codeFileInputRef.current?.click()} className="w-full sm:w-auto rounded-xl border border-gray-300 bg-gray-50 hover:bg-gray-100 font-medium px-4 py-2.5 text-sm transition-colors whitespace-nowrap">
                     Выбрать файл...
                   </button>
                   {codeFile && <span className="inline-flex items-center gap-2 rounded-lg bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 text-sm truncate max-w-full"><FileCode className="h-4 w-4 shrink-0" /> <span className="truncate">{codeFile.name}</span></span>}
@@ -104,9 +104,9 @@ export function SellPage({
 
         {/* Финансы и Выдача */}
         <div className="bg-white border border-gray-200 rounded-2xl p-5 sm:p-7 shadow-sm">
-          <div className="flex items-center gap-2 mb-5 pb-3 border-b border-gray-100">
+          <div className="flex min-w-0 items-center gap-2 mb-5 pb-3 border-b border-gray-100">
             <Wallet className="h-5 w-5 text-gray-500" />
-            <h2 className="text-lg font-semibold text-gray-800">Бизнес-показатели и Финансы</h2>
+            <h2 className="break-words text-lg font-semibold text-gray-800">Бизнес-показатели и Финансы</h2>
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
@@ -142,15 +142,15 @@ export function SellPage({
 
         {/* Медиа файлы */}
         <div className="bg-white border border-gray-200 rounded-2xl p-5 sm:p-7 shadow-sm">
-          <div className="flex items-center gap-2 mb-5 pb-3 border-b border-gray-100">
+          <div className="flex min-w-0 items-center gap-2 mb-5 pb-3 border-b border-gray-100">
             <Camera className="h-5 w-5 text-gray-500" />
-            <h2 className="text-lg font-semibold text-gray-800">Медиа (Скриншоты проекта)</h2>
+            <h2 className="break-words text-lg font-semibold text-gray-800">Медиа (Скриншоты проекта)</h2>
           </div>
           <div className="space-y-3">
             <p className="text-sm text-gray-600">Загрузите до 5 качественных скриншотов вашего проекта. Первое загруженное изображение будет обложкой (превью).</p>
-            <div className="flex flex-wrap gap-3 mt-4">
+            <div className="grid grid-cols-2 min-[420px]:grid-cols-3 sm:flex sm:flex-wrap gap-3 mt-4">
               {sellImagePreviews.map((src, index) => (
-                <div key={`${src}-${index}`} className="relative h-28 w-28 overflow-hidden rounded-xl border border-gray-200 shadow-sm group">
+                <div key={`${src}-${index}`} className="relative aspect-square w-full sm:h-28 sm:w-28 overflow-hidden rounded-xl border border-gray-200 shadow-sm group">
                   <img src={src} alt="Project preview" className="h-full w-full object-cover group-hover:scale-105 transition-transform" />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
                   <button type="button" onClick={() => removeSellImage(index)} className="absolute right-1.5 top-1.5 rounded-full bg-white/90 p-1.5 text-gray-700 hover:text-red-500 hover:bg-white shadow">
@@ -160,7 +160,7 @@ export function SellPage({
                 </div>
               ))}
               {sellImagePreviews.length < 5 && (
-                <button type="button" onClick={() => imageInputRef.current?.click()} className="flex flex-col h-28 w-28 items-center justify-center rounded-xl border-2 border-dashed border-gray-300 text-gray-500 hover:text-blue-500 hover:border-blue-400 hover:bg-blue-50 transition-colors gap-2">
+                <button type="button" onClick={() => imageInputRef.current?.click()} className="flex aspect-square w-full sm:h-28 sm:w-28 flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 text-gray-500 hover:text-blue-500 hover:border-blue-400 hover:bg-blue-50 transition-colors gap-2">
                   <ImagePlus className="h-7 w-7" />
                   <span className="text-xs font-medium">Добавить</span>
                 </button>

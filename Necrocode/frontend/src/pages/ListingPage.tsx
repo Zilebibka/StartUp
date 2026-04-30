@@ -119,13 +119,13 @@ export function ListingPage({ selectedListing, handleAddToCart, navigateToHome, 
   const visibleReviews = isReviewsExpanded ? sellerReviews : sellerReviews.slice(0, 3)
 
   return (
-    <motion.section key="listing" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="max-w-6xl mx-auto flex flex-col gap-12 pb-16">
+    <motion.section key="listing" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="max-w-6xl mx-auto flex flex-col gap-8 sm:gap-12 pb-12 sm:pb-16">
       
       {/* Main Top Section */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-8 items-start">
         {/* Left Column: Images */}
         <div className="lg:col-span-7 space-y-4">
-          <div className="h-[360px] sm:h-[420px] rounded-2xl border border-gray-200 bg-gray-100 overflow-hidden flex items-center justify-center relative group">
+          <div className="h-[280px] min-[420px]:h-[340px] sm:h-[420px] rounded-2xl border border-gray-200 bg-gray-100 overflow-hidden flex items-center justify-center relative group">
             {images[activeImageIndex] ? (
               <button
                 type="button"
@@ -176,15 +176,15 @@ export function ListingPage({ selectedListing, handleAddToCart, navigateToHome, 
             )}
           </div>
           
-          <div className="h-20">
+          <div className="min-h-0 sm:min-h-20">
             {images[0] && images.length > 1 && (
-              <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 sm:gap-3">
                 {images.map((url, index) => (
                   <button
                     key={`${selectedListing.id}-${index}`}
                     type="button"
                     onClick={() => setActiveImageIndex(index)}
-                    className={`h-20 w-full rounded-xl border overflow-hidden transition-all ${index === activeImageIndex ? 'border-gray-900 ring-2 ring-gray-900/20' : 'border-gray-200 hover:border-gray-400'}`}
+                    className={`h-16 sm:h-20 w-full rounded-xl border overflow-hidden transition-all ${index === activeImageIndex ? 'border-gray-900 ring-2 ring-gray-900/20' : 'border-gray-200 hover:border-gray-400'}`}
                     aria-label={`Фото ${index + 1}`}
                   >
                     <img src={url} alt={`Фото ${index + 1}`} className="h-full w-full object-cover" />
@@ -229,7 +229,7 @@ export function ListingPage({ selectedListing, handleAddToCart, navigateToHome, 
               <button
                 type="button"
                 onClick={() => openUserProfile(selectedListing.ownerLogin)}
-                className="text-xs font-semibold text-blue-600 hover:text-blue-700 mt-1"
+                className="truncate text-xs font-semibold text-blue-600 hover:text-blue-700 mt-1"
               >
                 Продавец: {selectedListing.ownerLogin}
               </button>
@@ -243,30 +243,30 @@ export function ListingPage({ selectedListing, handleAddToCart, navigateToHome, 
             
             {/* Header & Seller */}
             <div>
-              <div className="flex items-center gap-2 mb-4">
+              <div className="flex flex-wrap items-center gap-2 mb-4">
                  <span className={`delivery-chip px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest ${selectedListing.deliveryMode === 'auto' ? 'delivery-chip-auto' : 'delivery-chip-manual'}`}>
                    {selectedListing.deliveryMode === 'auto' ? 'Автовыдача' : 'Ручная передача'}
                  </span>
                  <span className="flex items-center gap-1.5 text-xs font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded-lg"><Clock className="w-3.5 h-3.5" /> ID: {selectedListing.id}</span>
               </div>
-              <h1 className="text-3xl sm:text-4xl font-black text-gray-900 leading-none mb-5">{selectedListing.title}</h1>
+              <h1 className="break-words text-2xl sm:text-4xl font-black text-gray-900 leading-tight sm:leading-none mb-5">{selectedListing.title}</h1>
               
-              <div className="flex items-center justify-between p-4 bg-gray-50 border border-gray-100 rounded-2xl min-h-[88px] panel-soft panel-outline">
-                 <div className="flex items-center gap-3">
+              <div className="flex flex-col gap-4 min-[460px]:flex-row min-[460px]:items-center min-[460px]:justify-between p-4 bg-gray-50 border border-gray-100 rounded-2xl min-h-[88px] panel-soft panel-outline">
+                 <div className="flex min-w-0 items-center gap-3">
                    <div className="h-10 w-10 rounded-full bg-white border-2 border-gray-200 flex items-center justify-center text-gray-900 font-bold shadow-sm">
                      {selectedListing.ownerLogin.charAt(0).toUpperCase()}
                    </div>
-                   <div>
+                   <div className="min-w-0">
                      <p className="text-xs text-gray-500 font-semibold mb-0.5">Владелец / Продавец</p>
                      <button
                        onClick={() => openUserProfile(selectedListing.ownerLogin)}
-                       className="text-sm font-extrabold text-gray-900 hover:text-blue-600 hover:underline transition-colors"
+                       className="max-w-full truncate text-sm font-extrabold text-gray-900 hover:text-blue-600 hover:underline transition-colors"
                      >
                        {selectedListing.ownerLogin}
                      </button>
                    </div>
                  </div>
-                 <div className="text-right">
+                 <div className="text-left min-[460px]:text-right">
                     <div className="flex items-center justify-end gap-0.5 mb-0.5">
                       {renderRatingStars(averageRating)}
                     </div>
@@ -280,8 +280,8 @@ export function ListingPage({ selectedListing, handleAddToCart, navigateToHome, 
             {/* Action Card (Price + Cart) */}
             <div className="bg-white border rounded-3xl p-6 shadow-xl shadow-gray-200/50 panel-shell">
                <p className="text-sm text-gray-500 font-bold uppercase tracking-widest mb-2">Разовый платеж</p>
-               <div className="flex items-baseline gap-2 mb-6">
-                  <p className="text-5xl font-black text-gray-900 tracking-tight">{selectedListing.price.toLocaleString('ru-RU')}</p>
+               <div className="flex flex-wrap items-baseline gap-2 mb-6">
+                  <p className="break-all text-4xl sm:text-5xl font-black text-gray-900 tracking-tight">{selectedListing.price.toLocaleString('ru-RU')}</p>
                   <span className="text-2xl font-bold text-gray-400">₽</span>
                </div>
                
@@ -293,20 +293,20 @@ export function ListingPage({ selectedListing, handleAddToCart, navigateToHome, 
                </button>
 
                {selectedListing.codeFileName && (
-                  <div className="mt-5 flex items-center justify-center gap-2 text-xs font-semibold text-gray-500 bg-gray-50 border border-gray-100 rounded-lg py-2 panel-soft panel-outline">
-                     <Link2 className="h-4 w-4 text-gray-400" /> Включен файл: <span className="text-gray-700">{selectedListing.codeFileName}</span>
+                  <div className="mt-5 flex min-w-0 items-center justify-center gap-2 text-xs font-semibold text-gray-500 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 panel-soft panel-outline">
+                     <Link2 className="h-4 w-4 shrink-0 text-gray-400" /> <span className="shrink-0">Включен файл:</span> <span className="truncate text-gray-700">{selectedListing.codeFileName}</span>
                   </div>
                )}
             </div>
 
             {/* Business Metrics Grid */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 bg-gray-50 border border-gray-100 rounded-2xl p-4 panel-soft panel-outline">
+            <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
+              <div className="min-[420px]:col-span-2 bg-gray-50 border border-gray-100 rounded-2xl p-4 panel-soft panel-outline">
                 <p className="text-[10px] text-gray-400 uppercase tracking-widest font-black mb-1">Стек технологий</p>
                 <p className="text-sm font-bold text-gray-900">{selectedListing.techStack || 'Не указан'}</p>
               </div>
               {selectedListing.monetizationType && (
-                <div className="col-span-2 bg-gray-50 border border-gray-100 rounded-2xl p-4 panel-soft panel-outline">
+                <div className="min-[420px]:col-span-2 bg-gray-50 border border-gray-100 rounded-2xl p-4 panel-soft panel-outline">
                   <p className="text-[10px] text-gray-400 uppercase tracking-widest font-black mb-1">Монетизация</p>
                   <p className="text-sm font-bold text-gray-900">{selectedListing.monetizationType}</p>
                 </div>
@@ -343,7 +343,7 @@ export function ListingPage({ selectedListing, handleAddToCart, navigateToHome, 
               <h3 className="text-2xl font-extrabold text-gray-900">Описание проекта</h3>
            </div>
            
-            <div className="text-base text-gray-700 whitespace-pre-wrap leading-relaxed bg-white border border-gray-100 rounded-3xl p-8 shadow-sm min-h-[320px]">
+            <div className="text-sm sm:text-base text-gray-700 whitespace-pre-wrap break-words leading-relaxed bg-white border border-gray-100 rounded-3xl p-5 sm:p-8 shadow-sm min-h-[240px] sm:min-h-[320px]">
             {selectedListing.description}
            </div>
         </div>

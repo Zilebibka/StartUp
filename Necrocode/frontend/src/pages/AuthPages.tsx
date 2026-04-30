@@ -49,7 +49,7 @@ export function RegisterPage({ registerForm, setRegisterForm, handleRegister, is
           <input className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all font-medium text-gray-900 bg-gray-50/50 focus:bg-white" type="password" placeholder="••••••••" value={registerForm.password} onChange={(e) => setRegisterForm((prev: any) => ({ ...prev, password: e.target.value }))} required />
         </div>
         <button
-          className="w-full rounded-xl bg-gray-900 hover:bg-black disabled:bg-gray-500 disabled:cursor-not-allowed py-3.5 text-white font-bold shadow-lg shadow-gray-900/20 transition-all active:scale-[0.98] mt-2"
+          className="w-full rounded-xl bg-black hover:bg-gray-800 disabled:bg-gray-500 disabled:cursor-not-allowed py-3.5 text-white font-bold shadow-lg shadow-gray-900/20 transition-all active:scale-[0.98] mt-2"
           type="submit"
           disabled={isRegisterSubmitting}
         >
@@ -375,7 +375,7 @@ export function ProfilePage({ currentUser, viewedUser, isOwnProfile = false, bal
         
         {/* Left Column: User Card */}
         <div className="w-full md:w-[360px] flex flex-col gap-6">
-          <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-xl shadow-gray-200/20 flex flex-col items-center text-center relative overflow-hidden">
+          <div className="bg-white rounded-3xl p-5 sm:p-8 border border-gray-100 shadow-xl shadow-gray-200/20 flex flex-col items-center text-center relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-white -z-10"></div>
             <div className="absolute -right-8 -top-8 w-40 h-40 bg-blue-50/50 rounded-full blur-3xl pointer-events-none"></div>
 
@@ -394,7 +394,7 @@ export function ProfilePage({ currentUser, viewedUser, isOwnProfile = false, bal
               )}
             </div>
             
-            <h2 className="text-2xl font-black text-gray-900 mb-1 z-10">{profileUser.displayName || profileUser.login}</h2>
+            <h2 className="max-w-full break-words text-2xl font-black text-gray-900 mb-1 z-10">{profileUser.displayName || profileUser.login}</h2>
             {!isOwnProfile && (
               <button
                 type="button"
@@ -418,23 +418,23 @@ export function ProfilePage({ currentUser, viewedUser, isOwnProfile = false, bal
             </div>
             
             <div className="w-full text-left space-y-5 z-10">
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-gray-50/80 border border-gray-100 hover:bg-gray-100 transition-colors">
+              <div className="flex flex-col min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between gap-2 p-3 rounded-2xl bg-gray-50/80 border border-gray-100 hover:bg-gray-100 transition-colors">
                 <div className="flex items-center gap-3 text-sm">
                   <div className="w-8 h-8 rounded-xl bg-white shadow-sm flex items-center justify-center text-gray-400 border border-gray-100"><Tag className="w-4 h-4" /></div>
                   <div className="text-xs font-extrabold text-gray-400 uppercase tracking-widest">Логин</div>
                 </div>
-                <div className="font-bold text-gray-900">{profileUser.login}</div>
+                <div className="max-w-full break-words font-bold text-gray-900">{profileUser.login}</div>
               </div>
               
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-gray-50/80 border border-gray-100 hover:bg-gray-100 transition-colors">
+              <div className="flex flex-col min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between gap-2 p-3 rounded-2xl bg-gray-50/80 border border-gray-100 hover:bg-gray-100 transition-colors">
                 <div className="flex items-center gap-3 text-sm">
                   <div className="w-8 h-8 rounded-xl bg-white shadow-sm flex items-center justify-center text-gray-400 border border-gray-100"><Mail className="w-4 h-4" /></div>
                   <div className="text-xs font-extrabold text-gray-400 uppercase tracking-widest">Email</div>
                 </div>
-                <div className="font-bold text-gray-900 truncate max-w-[120px]">{isOwnProfile ? (profileUser.email || '—') : 'Скрыт'}</div>
+                <div className="max-w-full truncate font-bold text-gray-900 min-[420px]:max-w-[120px]">{isOwnProfile ? (profileUser.email || '—') : 'Скрыт'}</div>
               </div>
 
-              {isOwnProfile && <div className="flex items-center justify-between p-3 rounded-2xl bg-blue-50 border border-blue-100">
+              {isOwnProfile && <div className="flex flex-col min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between gap-2 p-3 rounded-2xl bg-blue-50 border border-blue-100">
                 <div className="flex items-center gap-3 text-sm">
                   <div className="w-8 h-8 rounded-xl bg-white shadow-sm flex items-center justify-center text-blue-500 border border-blue-100"><Wallet className="w-4 h-4" /></div>
                   <div className="text-xs font-extrabold text-blue-500 uppercase tracking-widest">Баланс</div>
@@ -448,7 +448,7 @@ export function ProfilePage({ currentUser, viewedUser, isOwnProfile = false, bal
 
         {/* Right Column: Stats & Listings */}
         <div className="flex-1 flex flex-col gap-6">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
              <div className="bg-gray-900 rounded-3xl p-6 text-white shadow-xl shadow-gray-900/20 relative overflow-hidden group">
                <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/5 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
                <div className="text-gray-400 text-xs font-black uppercase tracking-widest mb-1 relative z-10 flex items-center gap-2">
@@ -463,8 +463,8 @@ export function ProfilePage({ currentUser, viewedUser, isOwnProfile = false, bal
              </div>
           </div>
 
-          <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-xl shadow-gray-200/20 flex-1 flex flex-col">
-            <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-100">
+          <div className="bg-white rounded-3xl p-5 sm:p-8 border border-gray-100 shadow-xl shadow-gray-200/20 flex-1 flex flex-col">
+            <div className="flex flex-col min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between gap-3 mb-8 pb-4 border-b border-gray-100">
               <h2 className="text-2xl font-extrabold text-gray-900">{isOwnProfile ? 'Мои Анкеты' : 'Анкеты пользователя'}</h2>
               <span className="px-3.5 py-1.5 bg-gray-100 text-gray-600 text-xs font-black rounded-full uppercase tracking-wider">{userListings.length} ШТУК</span>
             </div>
@@ -516,7 +516,7 @@ export function ProfilePage({ currentUser, viewedUser, isOwnProfile = false, bal
           </div>
 
           {/* Reviews Section */}
-          <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-xl shadow-gray-200/20 flex-1 flex flex-col">
+          <div className="bg-white rounded-3xl p-5 sm:p-8 border border-gray-100 shadow-xl shadow-gray-200/20 flex-1 flex flex-col">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 pb-4 border-b border-gray-100 gap-4">
               <div>
                 <h2 className="text-2xl font-extrabold text-gray-900">Отзывы покупателей</h2>
@@ -553,12 +553,12 @@ export function ProfilePage({ currentUser, viewedUser, isOwnProfile = false, bal
                   placeholder="Напишите, как прошла сделка..." 
                   className="w-full min-h-[100px] border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-black resize-y"
                 ></textarea>
-                <div className="flex justify-end">
+                <div className="flex justify-stretch sm:justify-end">
                   <button 
                     type="button" 
                     onClick={handleAddReview}
                     disabled={!newReviewText.trim() || !currentUser}
-                    className="px-6 py-2.5 bg-black text-white font-extrabold text-sm rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full sm:w-auto px-6 py-2.5 bg-black text-white font-extrabold text-sm rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Отправить отзыв
                   </button>
@@ -581,7 +581,7 @@ export function ProfilePage({ currentUser, viewedUser, isOwnProfile = false, bal
                       key={r.id} 
                       className="p-5 border border-gray-100 rounded-2xl bg-white"
                     >
-                      <div className="flex items-center justify-between mb-3 border-b border-gray-50 pb-3">
+                      <div className="flex flex-col min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between gap-3 mb-3 border-b border-gray-50 pb-3">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center font-bold text-gray-400 text-lg uppercase">
                             {r.author[0]}

@@ -27,7 +27,7 @@ func NewRouter(db *sql.DB) http.Handler {
 
 	authHandler := authhandler.Handler{DB: db, SMTPConfig: services.LoadSMTPConfigFromEnv()}
 	chatHub := chathandler.NewHub()
-	chatHandler := chathandler.Handler{Hub: chatHub}
+	chatHandler := chathandler.Handler{Hub: chatHub, DB: db}
 	marketHandler := marketplacehandler.Handler{DB: db}
 	userHandler := userhandler.Handler{DB: db}
 
@@ -43,6 +43,7 @@ func NewRouter(db *sql.DB) http.Handler {
 		r.Get("/users/search", userHandler.Search)
 		r.Get("/users/{publicID}", userHandler.GetByPublicID)
 		r.Get("/ws/chat", chatHandler.HandleWS)
+		r.Get("/chats/attachments/{id}", chatHandler.DownloadAttachment)
 
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/register", authHandler.Register)
@@ -58,6 +59,9 @@ func NewRouter(db *sql.DB) http.Handler {
 
 		r.Group(func(r chi.Router) {
 			r.Use(middlewares.AuthMiddleware)
+			r.Get("/chats", chatHandler.ListChats)
+			r.Get("/chats/{login}", chatHandler.GetChatHistory)
+			r.Post("/chats/{login}/attachments", chatHandler.UploadAttachment)
 			r.Post("/listings", marketHandler.CreateListing)
 			r.Put("/listings/{listingID}", marketHandler.UpdateListing)
 			r.Delete("/listings/{listingID}", marketHandler.DeleteListing)

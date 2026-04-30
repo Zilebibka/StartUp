@@ -28,15 +28,15 @@ export function HomePage({ filteredListings, openListingPage, openUserProfile, h
             IT-проектов
           </p>
         </div>
-        <div className="relative h-64 sm:h-72 xl:h-full min-h-[260px] w-full rounded-2xl overflow-hidden border border-white/20 shadow-xl shadow-gray-900/20">
+        <div className="relative h-64 sm:h-72 xl:h-full min-h-[240px] w-full rounded-2xl overflow-hidden border border-white/20 shadow-xl shadow-gray-900/20">
           <img
             src="https://images.unsplash.com/photo-1515879218367-8466d910aaa4?q=80&w=1920&auto=format&fit=crop"
             alt="Рабочее место разработчика с кодом"
             className="absolute inset-0 h-full w-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-slate-900/45 to-slate-900/55" />
-          <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6">
-            <p className="text-[11px] sm:text-xs font-black uppercase tracking-[0.18em] text-slate-200/90">NECROCODE MARKETPLACE</p>
+          <div className="absolute inset-x-0 bottom-0 p-4 sm:p-6">
+            <p className="text-[10px] sm:text-xs font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] text-slate-200/90">NECROCODE MARKETPLACE</p>
             <p className="mt-2 max-w-2xl text-sm sm:text-base font-semibold text-slate-100/95 leading-relaxed">
               Покупайте и продавайте незавершенные IT-проекты: код, архитектуру и цифровые активы с прозрачной сделкой.
             </p>
@@ -76,8 +76,8 @@ export function HomePage({ filteredListings, openListingPage, openUserProfile, h
                      {item.techStack || 'Стек технологий не указан'}
                  </p>
                  
-                 <div className="mt-auto pt-4 border-t border-gray-100 flex items-center justify-between">
-                   <span className="font-extrabold text-gray-900 text-lg">
+                 <div className="mt-auto pt-4 border-t border-gray-100 flex flex-col gap-3 min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between">
+                   <span className="min-w-0 break-words font-extrabold text-gray-900 text-lg">
                       {item.price > 0 ? item.price.toLocaleString('ru-RU') + ' ₽' : 'По запросу'}
                    </span>
                    <button
@@ -85,12 +85,12 @@ export function HomePage({ filteredListings, openListingPage, openUserProfile, h
                        e.stopPropagation()
                        openUserProfile(item.ownerLogin)
                      }}
-                     className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 hover:text-black transition-colors"
+                     className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-gray-400 hover:text-black transition-colors"
                    >
                      <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px] text-gray-600 border border-gray-200">
                        {item.ownerLogin.charAt(0).toUpperCase()}
                      </div>
-                     {item.ownerLogin}
+                     <span className="truncate">{item.ownerLogin}</span>
                    </button>
                  </div>
               </div>

@@ -370,8 +370,8 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-[260px_1fr]">
-        <aside className="border-r border-gray-100 p-4 sm:p-5">
-          <nav className="space-y-2">
+        <aside className="border-b border-gray-100 p-3 sm:p-5 md:border-b-0 md:border-r">
+          <nav className="flex gap-2 overflow-x-auto pb-1 md:block md:space-y-2 md:overflow-visible md:pb-0">
             {tabs.map((tab) => {
               const Icon = tab.icon
               const isActive = activeTab === tab.id
@@ -379,7 +379,7 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`w-full rounded-xl px-4 py-3 text-left text-sm font-bold transition-colors flex items-center gap-3 ${
+                  className={`shrink-0 rounded-xl px-4 py-3 text-left text-sm font-bold transition-colors flex items-center gap-3 md:w-full ${
                     isActive ? 'bg-black text-white' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
                   }`}
                 >
@@ -391,7 +391,7 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
           </nav>
         </aside>
 
-        <div className="p-5 sm:p-8">
+        <div className="p-4 sm:p-8">
           {activeTab === 'profile' && (
             <div className="space-y-6">
               <h2 className="text-xl font-black text-gray-900">Профиль</h2>
@@ -432,7 +432,7 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
 
               <div className="rounded-2xl border border-gray-100 bg-gray-50 p-5">
                 <h3 className="text-sm font-extrabold text-gray-800 uppercase tracking-wide mb-3">Аватар</h3>
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col min-[420px]:flex-row min-[420px]:items-center gap-4">
                   <div className="h-20 w-20 rounded-full bg-white border border-gray-200 overflow-hidden">
                     {avatarDataUrl ? (
                       <img src={avatarDataUrl} alt="Avatar" className="h-full w-full object-cover" />
@@ -440,7 +440,7 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
                       <div className="h-full w-full grid place-items-center text-gray-400 font-black text-lg">{(currentUser.login[0] ?? 'U').toUpperCase()}</div>
                     )}
                   </div>
-                  <label className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-bold text-gray-800 hover:border-black hover:bg-gray-50 transition-colors">
+                  <label className="inline-flex w-full min-[420px]:w-auto items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-bold text-gray-800 hover:border-black hover:bg-gray-50 transition-colors">
                     <Camera className="h-4 w-4" />
                     Загрузить файл
                     <input
@@ -473,7 +473,7 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
                 {themeMode === 'dark' && (
                   <div className="mt-4 space-y-2.5">
                     <p className="text-xs font-black text-gray-500 uppercase tracking-widest">Вариант темной темы</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                    <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 gap-2">
                       {darkThemeOptions.map((option) => (
                         <button
                           key={option.id}
@@ -552,7 +552,7 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
                     <button
                       onClick={handleSavePassword}
                       disabled={isSavingSecurity}
-                      className="rounded-xl bg-black px-5 py-2.5 text-sm font-bold text-white hover:bg-gray-800 disabled:opacity-60"
+                    className="w-full sm:w-auto rounded-xl bg-black px-5 py-2.5 text-sm font-bold text-white hover:bg-gray-800 disabled:opacity-60"
                     >
                       {isSavingSecurity ? 'Сохраняем...' : 'Поменять пароль'}
                     </button>
@@ -576,7 +576,7 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
                       type="button"
                       onClick={() => { void handleSendEmailCode() }}
                       disabled={isSendingEmailCode}
-                      className="rounded-xl bg-gray-100 px-5 py-2.5 text-sm font-bold text-gray-900 hover:bg-gray-200 disabled:opacity-60"
+                      className="w-full sm:w-auto rounded-xl bg-gray-100 px-5 py-2.5 text-sm font-bold text-gray-900 hover:bg-gray-200 disabled:opacity-60"
                     >
                       {isSendingEmailCode ? 'Отправляем код...' : 'Отправить код'}
                     </button>
@@ -597,7 +597,7 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
                     <button
                       onClick={() => { void handleConfirmEmail() }}
                       disabled={isSavingSecurity || !emailCodeSent}
-                      className="rounded-xl bg-black px-5 py-2.5 text-sm font-bold text-white hover:bg-gray-800 disabled:opacity-60"
+                      className="w-full sm:w-auto rounded-xl bg-black px-5 py-2.5 text-sm font-bold text-white hover:bg-gray-800 disabled:opacity-60"
                     >
                       {isSavingSecurity ? 'Сохраняем...' : 'Подтвердить и сменить email'}
                     </button>
@@ -619,7 +619,7 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
                 <ToggleItem label="Разрешить личные сообщения" checked={privacy.allowDirectMessages} onChange={(checked) => setPrivacy((prev) => ({ ...prev, allowDirectMessages: checked }))} />
                 <ToggleItem label="Разрешить индексацию профиля" checked={privacy.allowProfileIndexing} onChange={(checked) => setPrivacy((prev) => ({ ...prev, allowProfileIndexing: checked }))} />
 
-                <button onClick={savePrivacy} className="rounded-xl bg-black px-5 py-2.5 text-sm font-bold text-white hover:bg-gray-800">
+                <button onClick={savePrivacy} className="w-full sm:w-auto rounded-xl bg-black px-5 py-2.5 text-sm font-bold text-white hover:bg-gray-800">
                   Сохранить приватность
                 </button>
                 {privacyMessage && <p className="text-xs text-emerald-600">{privacyMessage}</p>}
@@ -636,7 +636,7 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
                 <ToggleItem label="Push для сообщений" checked={notifications.pushMessages} onChange={(checked) => setNotifications((prev) => ({ ...prev, pushMessages: checked }))} />
                 <ToggleItem label="Push для важных событий" checked={notifications.pushImportant} onChange={(checked) => setNotifications((prev) => ({ ...prev, pushImportant: checked }))} />
 
-                <button onClick={saveNotifications} className="rounded-xl bg-black px-5 py-2.5 text-sm font-bold text-white hover:bg-gray-800">
+                <button onClick={saveNotifications} className="w-full sm:w-auto rounded-xl bg-black px-5 py-2.5 text-sm font-bold text-white hover:bg-gray-800">
                   Сохранить уведомления
                 </button>
                 {notificationMessage && <p className="text-xs text-emerald-600">{notificationMessage}</p>}
@@ -655,7 +655,7 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
                     className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
                     placeholder="Логин пользователя"
                   />
-                  <button onClick={addToBlacklist} className="rounded-xl bg-black px-5 py-2.5 text-sm font-bold text-white hover:bg-gray-800">
+                  <button onClick={addToBlacklist} className="w-full sm:w-auto rounded-xl bg-black px-5 py-2.5 text-sm font-bold text-white hover:bg-gray-800">
                     Добавить
                   </button>
                 </div>
@@ -664,8 +664,8 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
                 <div className="mt-4 space-y-2">
                   {blacklist.length === 0 && <p className="text-sm text-gray-500">Черный список пуст.</p>}
                   {blacklist.map((login) => (
-                    <div key={login} className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm">
-                      <span className="font-semibold text-gray-800">{login}</span>
+                    <div key={login} className="flex flex-col min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm">
+                      <span className="break-words font-semibold text-gray-800">{login}</span>
                       <button onClick={() => removeFromBlacklist(login)} className="text-red-600 hover:text-red-700 font-bold">
                         Удалить
                       </button>
@@ -684,7 +684,7 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
 function ToggleItem({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
   return (
     <label className="flex items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white px-4 py-3">
-      <span className="text-sm font-semibold text-gray-800">{label}</span>
+      <span className="min-w-0 break-words text-sm font-semibold text-gray-800">{label}</span>
       <button
         type="button"
         onClick={() => onChange(!checked)}

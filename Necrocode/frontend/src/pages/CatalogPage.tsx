@@ -100,10 +100,10 @@ export function CatalogPage({ listings, openListingPage, openUserProfile }: Cata
       initial={{ opacity: 0, y: 12 }} 
       animate={{ opacity: 1, y: 0 }} 
       exit={{ opacity: 0, y: -8 }} 
-      className="flex flex-col lg:flex-row gap-8"
+      className="flex flex-col lg:flex-row gap-6 lg:gap-8"
     >
       {/* LEFT COLUMN: FILTERS */}
-      <aside className="w-full lg:w-64 shrink-0 flex flex-col gap-6">
+      <aside className="w-full lg:w-64 shrink-0 flex flex-col gap-5 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
         <div>
           <h2 className="text-xl font-extrabold text-black mb-4">Фильтры</h2>
           <div className="relative">
@@ -133,16 +133,16 @@ export function CatalogPage({ listings, openListingPage, openUserProfile }: Cata
 
         <div>
           <h3 className="font-bold text-gray-900 mb-3 text-sm">Тип проекта</h3>
-          <div className="flex flex-col gap-2.5">
+          <div className="grid grid-cols-2 gap-2.5 sm:flex sm:flex-col">
             {PROJECT_TYPES.map(type => (
-              <label key={type.id} className="flex items-center gap-2 cursor-pointer group">
+              <label key={type.id} className="flex min-w-0 items-center gap-2 cursor-pointer group">
                 <input 
                   type="checkbox" 
                   checked={selectedTypes.includes(type.id)}
                   onChange={() => handleTypeToggle(type.id)}
                   className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black cursor-pointer bg-white"
                 />
-                <span className="text-sm text-gray-700 group-hover:text-black transition-colors">{type.label}</span>
+                <span className="truncate text-sm text-gray-700 group-hover:text-black transition-colors">{type.label}</span>
               </label>
             ))}
           </div>
@@ -191,7 +191,7 @@ export function CatalogPage({ listings, openListingPage, openUserProfile }: Cata
       {/* CENTER COLUMN: CATALOG GRID */}
       <main className="flex-1">
         <h2 className="text-2xl font-extrabold text-black mb-6">Каталог</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           <AnimatePresence>
             {filteredListings.map((item) => (
               <motion.div 
@@ -224,8 +224,8 @@ export function CatalogPage({ listings, openListingPage, openUserProfile }: Cata
                        {item.techStack || 'Стек технологий не указан'}
                    </p>
                    
-                   <div className="mt-auto pt-4 border-t border-gray-100 flex items-center justify-between">
-                     <span className="font-extrabold text-gray-900 text-lg">
+                   <div className="mt-auto pt-4 border-t border-gray-100 flex flex-col gap-3 min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between">
+                     <span className="min-w-0 break-words font-extrabold text-gray-900 text-lg">
                         {item.price > 0 ? item.price.toLocaleString('ru-RU') + ' ₽' : 'По запросу'}
                      </span>
                      <button
@@ -233,12 +233,12 @@ export function CatalogPage({ listings, openListingPage, openUserProfile }: Cata
                          e.stopPropagation()
                          openUserProfile(item.ownerLogin)
                        }}
-                       className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 hover:text-black transition-colors"
+                       className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-gray-400 hover:text-black transition-colors"
                      >
                        <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px] text-gray-600 border border-gray-200">
                          {item.ownerLogin.charAt(0).toUpperCase()}
                        </div>
-                       {item.ownerLogin}
+                       <span className="truncate">{item.ownerLogin}</span>
                      </button>
                    </div>
                 </div>

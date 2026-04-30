@@ -144,6 +144,14 @@ CREATE INDEX IF NOT EXISTS cart_items_user_id_idx ON cart_items(user_id);
 		return err
 	}
 
+	if err := ensureChatAttachmentsTable(db); err != nil {
+		return err
+	}
+
+	if err := ensureChatMessagesTable(db); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -189,6 +197,55 @@ CREATE INDEX IF NOT EXISTS pending_registrations_expires_at_idx ON pending_regis
 
 	if _, err := db.Exec(pendingRegistrationsTableQuery); err != nil {
 		return fmt.Errorf("create pending_registrations table: %w", err)
+	}
+
+	return nil
+}
+
+func ensureChatMessagesTable(db *sql.DB) error {
+	const chatMessagesTableQuery = `
+CREATE TABLE IF NOT EXISTS chat_messages (
+	id BIGSERIAL PRIMARY KEY,
+	sender_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+	recipient_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+	attachment_id BIGINT REFERENCES chat_attachments(id) ON DELETE SET NULL,
+	body TEXT NOT NULL,
+	sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS chat_messages_sender_recipient_idx ON chat_messages(sender_id, recipient_id, sent_at DESC);
+CREATE INDEX IF NOT EXISTS chat_messages_recipient_sender_idx ON chat_messages(recipient_id, sender_id, sent_at DESC);
+CREATE INDEX IF NOT EXISTS chat_messages_sent_at_idx ON chat_messages(sent_at DESC);
+ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS attachment_id BIGINT REFERENCES chat_attachments(id) ON DELETE SET NULL;
+`
+
+	if _, err := db.Exec(chatMessagesTableQuery); err != nil {
+		return fmt.Errorf("create chat_messages table: %w", err)
+	}
+
+	return nil
+}
+
+func ensureChatAttachmentsTable(db *sql.DB) error {
+	const chatAttachmentsTableQuery = `
+CREATE TABLE IF NOT EXISTS chat_attachments (
+	id BIGSERIAL PRIMARY KEY,
+	sender_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+	recipient_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+	kind VARCHAR(16) NOT NULL,
+	file_name VARCHAR(255) NOT NULL,
+	mime VARCHAR(120) NOT NULL,
+	size_bytes BIGINT NOT NULL,
+	data BYTEA NOT NULL,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS chat_attachments_sender_idx ON chat_attachments(sender_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS chat_attachments_recipient_idx ON chat_attachments(recipient_id, created_at DESC);
+`
+
+	if _, err := db.Exec(chatAttachmentsTableQuery); err != nil {
+		return fmt.Errorf("create chat_attachments table: %w", err)
 	}
 
 	return nil

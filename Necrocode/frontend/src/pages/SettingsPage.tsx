@@ -440,7 +440,7 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
                       <div className="h-full w-full grid place-items-center text-gray-400 font-black text-lg">{(currentUser.login[0] ?? 'U').toUpperCase()}</div>
                     )}
                   </div>
-                  <label className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-bold text-gray-800 hover:border-black">
+                  <label className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-bold text-gray-800 hover:border-black hover:bg-gray-50 transition-colors">
                     <Camera className="h-4 w-4" />
                     Загрузить файл
                     <input

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	authhandler "Necrocode/api/handlers/AuthHandler"
+	chathandler "Necrocode/api/handlers/ChatHandler"
 	marketplacehandler "Necrocode/api/handlers/MarketplaceHandler"
 	userhandler "Necrocode/api/handlers/UserHandler"
 	"Necrocode/api/middlewares"
@@ -25,6 +26,8 @@ func NewRouter(db *sql.DB) http.Handler {
 	r.Use(chimiddleware.Recoverer)
 
 	authHandler := authhandler.Handler{DB: db, SMTPConfig: services.LoadSMTPConfigFromEnv()}
+	chatHub := chathandler.NewHub()
+	chatHandler := chathandler.Handler{Hub: chatHub}
 	marketHandler := marketplacehandler.Handler{DB: db}
 	userHandler := userhandler.Handler{DB: db}
 
@@ -39,6 +42,7 @@ func NewRouter(db *sql.DB) http.Handler {
 
 		r.Get("/users/search", userHandler.Search)
 		r.Get("/users/{publicID}", userHandler.GetByPublicID)
+		r.Get("/ws/chat", chatHandler.HandleWS)
 
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/register", authHandler.Register)

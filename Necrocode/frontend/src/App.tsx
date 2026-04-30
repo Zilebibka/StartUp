@@ -8,6 +8,7 @@ import {
   Settings,
   Search,
   ShoppingCart,
+  MessageCircle,
   Wallet,
   X,
   CheckCircle,
@@ -21,6 +22,7 @@ import { HomePage } from './pages/HomePage'
 import { CatalogPage } from './pages/CatalogPage'
 import { ListingPage } from './pages/ListingPage'
 import { CartPage } from './pages/CartPage'
+import { ChatPage } from './pages/ChatPage'
 import { TopupPage } from './pages/TopupPage'
 import { WithdrawPage } from './pages/WithdrawPage'
 import { SellPage } from './pages/SellPage'
@@ -87,6 +89,7 @@ function App() {
     if (pathname === '/sell') return 'sell'
     if (pathname === '/help') return 'help'
     if (pathname === '/about') return 'about'
+    if (pathname === '/chat') return 'chat'
     if (pathname === '/login') return 'login'
     if (pathname === '/register') return 'register'
     if (pathname === '/profile' || pathname.startsWith('/profile/')) return 'profile'
@@ -246,6 +249,18 @@ function App() {
     localStorage.setItem(THEME_STORAGE_KEY, themeMode)
     localStorage.setItem(DARK_THEME_VARIANT_STORAGE_KEY, darkThemeVariant)
   }, [themeMode, darkThemeVariant])
+
+  useEffect(() => {
+    if (!error) return
+    const timer = window.setTimeout(() => setError(''), 4500)
+    return () => window.clearTimeout(timer)
+  }, [error])
+
+  useEffect(() => {
+    if (!successMessage) return
+    const timer = window.setTimeout(() => setSuccessMessage(''), 3000)
+    return () => window.clearTimeout(timer)
+  }, [successMessage])
 
   useEffect(() => {
     const audio = new Audio('/sounds/notification.mp3')
@@ -1133,6 +1148,14 @@ function App() {
               <ShoppingCart className="w-5 h-5" />
               {cartCount > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-4 h-4 px-1 rounded-full bg-blue-600 text-white text-[10px] font-bold leading-4 text-center">{cartCount}</span>}
             </button>
+
+            <button
+              onClick={() => navigate('/chat')}
+              className={`relative transition-colors p-1 ${currentPage === 'chat' ? 'text-black' : 'hover:text-black'}`}
+              title="Чаты"
+            >
+              <MessageCircle className="w-5 h-5" />
+            </button>
             
             <div className="relative hidden sm:block">
               <button 
@@ -1321,6 +1344,17 @@ function App() {
             />
           )}
 
+          {currentPage === 'chat' && (
+            <ChatPage
+              apiBase={API_BASE}
+              accessToken={accessToken}
+              currentLogin={currentUser?.login ?? ''}
+              onIncomingMessage={(fromLogin) => {
+                addNotification(`Новое сообщение от ${fromLogin}`, 'info')
+              }}
+            />
+          )}
+
           {currentPage === 'topup' && (
             <TopupPage
               balance={balance}
@@ -1447,8 +1481,58 @@ function App() {
           )}
         </AnimatePresence>
 
-        {error && <p className="mx-auto mt-6 max-w-md rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
-        {successMessage && <p className="mx-auto mt-6 max-w-md rounded-xl bg-green-50 px-4 py-3 text-sm text-green-600">{successMessage}</p>}
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              key="toast-error"
+              initial={{ opacity: 0, y: -12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+              className="fixed top-4 inset-x-4 sm:inset-x-auto sm:right-6 z-50 sm:max-w-sm"
+              role="alert"
+            >
+              <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50/95 px-4 py-3 text-sm text-red-700 shadow-lg shadow-red-500/10 backdrop-blur">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <p className="flex-1 leading-snug">{error}</p>
+                <button
+                  type="button"
+                  onClick={() => setError('')}
+                  className="rounded-md p-1 text-red-400 hover:text-red-600 hover:bg-red-100"
+                  aria-label="Закрыть уведомление"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {successMessage && (
+            <motion.div
+              key="toast-success"
+              initial={{ opacity: 0, y: -12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+              className="fixed top-16 inset-x-4 sm:inset-x-auto sm:right-6 z-50 sm:max-w-sm"
+              role="status"
+            >
+              <div className="flex items-start gap-3 rounded-xl border border-green-200 bg-green-50/95 px-4 py-3 text-sm text-green-700 shadow-lg shadow-green-500/10 backdrop-blur">
+                <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <p className="flex-1 leading-snug">{successMessage}</p>
+                <button
+                  type="button"
+                  onClick={() => setSuccessMessage('')}
+                  className="rounded-md p-1 text-green-400 hover:text-green-600 hover:bg-green-100"
+                  aria-label="Закрыть уведомление"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
           </main>
 
           {/* Right Sidebar - Recommendations */}
@@ -1481,26 +1565,26 @@ function App() {
 
       {/* FOOTER */}
       {currentPage === 'home' && (
-      <footer className="mt-auto border-t border-gray-900 bg-black text-gray-400 py-6 px-4 sm:px-6 lg:px-8">
+      <footer className="mt-auto border-t border-gray-900 bg-black text-gray-400 py-6 px-4 sm:px-6 lg:px-8 footer-shell">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-6">
             <h2 className="text-xl font-black text-white tracking-tighter cursor-pointer" onClick={navigateToHome}>
               NECRO<span className="text-gray-500">CODE</span>
             </h2>
-            <p className="text-xs font-semibold text-gray-500 hidden sm:block">
+            <p className="text-xs font-semibold text-gray-500 hidden sm:block footer-muted">
               © {new Date().getFullYear()} Все права защищены.
             </p>
           </div>
 
           <div className="flex items-center gap-6 text-sm font-medium">
-            <button onClick={() => navigate('/sell')} className="hover:text-white transition-colors">Продать</button>
-            <button onClick={() => navigate('/about')} className="hover:text-white transition-colors">О нас</button>
-            <button onClick={() => navigate('/help')} className="hover:text-white transition-colors">Помощь</button>
+            <button onClick={() => navigate('/sell')} className="hover:text-white transition-colors footer-link">Продать</button>
+            <button onClick={() => navigate('/about')} className="hover:text-white transition-colors footer-link">О нас</button>
+            <button onClick={() => navigate('/help')} className="hover:text-white transition-colors footer-link">Помощь</button>
           </div>
 
           <a
             href="mailto:support_team@necrocode.ru"
-            className="text-xs sm:text-sm font-semibold text-gray-400 hover:text-white transition-colors"
+            className="text-xs sm:text-sm font-semibold text-gray-400 hover:text-white transition-colors footer-link"
           >
             support_team@necrocode.ru
           </a>

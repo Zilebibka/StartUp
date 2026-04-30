@@ -27,7 +27,7 @@ export function WithdrawPage({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
-      className="max-w-3xl mx-auto bg-white border rounded-2xl shadow-sm p-4 sm:p-8 space-y-5 sm:space-y-6"
+      className="max-w-3xl mx-auto bg-white border rounded-2xl shadow-sm p-4 sm:p-8 space-y-5 sm:space-y-6 panel-shell"
     >
       <h1 className="text-2xl font-bold">Вывод средств</h1>
       <p className="text-sm text-gray-500">Доступно для вывода: <b>{balance.toLocaleString('ru-RU')} ₽</b></p>
@@ -39,7 +39,7 @@ export function WithdrawPage({
             <button
               key={`${amount}-${idx}`}
               onClick={() => setWithdrawAmount(amount)}
-              className={`px-3 sm:px-4 py-2 border rounded-xl text-sm ${withdrawAmount === amount ? 'bg-black text-white' : ''}`}
+              className={`px-3 sm:px-4 py-2 border-2 rounded-xl text-sm panel-button ${withdrawAmount === amount ? 'bg-black text-white panel-button-active' : ''}`}
             >
               {idx === 3 ? 'Все средства' : `${amount} ₽`}
             </button>
@@ -49,7 +49,7 @@ export function WithdrawPage({
           type="number"
           value={withdrawAmount}
           onChange={(e) => setWithdrawAmount(e.target.value ? Number(e.target.value) : '')}
-          className="w-full px-4 py-3 bg-gray-50 border rounded-xl"
+          className="w-full px-4 py-3 bg-gray-50 border rounded-xl panel-soft panel-outline"
           min="1000"
           max={balance}
         />
@@ -62,8 +62,8 @@ export function WithdrawPage({
             onClick={() => { setWithdrawMethod('card'); setWithdrawDestination(''); }}
             className={`border-2 rounded-xl p-3 sm:p-4 text-sm sm:text-base transition-all duration-200 ${
               withdrawMethod === 'card' 
-                ? 'border-black bg-gray-900 text-white shadow-md transform scale-[1.02]' 
-                : 'border-gray-200 hover:border-gray-400'
+                ? 'border-black bg-gray-900 text-white shadow-md transform scale-[1.02] panel-button-active' 
+                : 'border-gray-200 hover:border-gray-400 panel-button'
             }`}
           >
             Банковская карта
@@ -72,8 +72,8 @@ export function WithdrawPage({
             onClick={() => { setWithdrawMethod('sbp'); setWithdrawDestination(''); }}
             className={`border-2 rounded-xl p-3 sm:p-4 text-sm sm:text-base transition-all duration-200 ${
               withdrawMethod === 'sbp' 
-                ? 'border-black bg-gray-900 text-white shadow-md transform scale-[1.02]' 
-                : 'border-gray-200 hover:border-gray-400'
+                ? 'border-black bg-gray-900 text-white shadow-md transform scale-[1.02] panel-button-active' 
+                : 'border-gray-200 hover:border-gray-400 panel-button'
             }`}
           >
             СБП
@@ -82,8 +82,8 @@ export function WithdrawPage({
             onClick={() => { setWithdrawMethod('crypto'); setWithdrawDestination(''); }}
             className={`border-2 rounded-xl p-3 sm:p-4 text-sm sm:text-base transition-all duration-200 ${
               withdrawMethod === 'crypto' 
-                ? 'border-black bg-gray-900 text-white shadow-md transform scale-[1.02]' 
-                : 'border-gray-200 hover:border-gray-400'
+                ? 'border-black bg-gray-900 text-white shadow-md transform scale-[1.02] panel-button-active' 
+                : 'border-gray-200 hover:border-gray-400 panel-button'
             }`}
           >
             Crypto (USDT)
@@ -99,7 +99,7 @@ export function WithdrawPage({
             placeholder="0000 0000 0000 0000" 
             value={withdrawDestination}
             onChange={(e) => setWithdrawDestination(e.target.value)}
-            className="w-full px-4 py-3 bg-gray-50 border border-gray-300 focus:border-black focus:ring-1 focus:ring-black outline-none rounded-xl transition-all" 
+            className="w-full px-4 py-3 bg-gray-50 border border-gray-300 focus:border-black focus:ring-1 focus:ring-black outline-none rounded-xl transition-all panel-soft panel-outline" 
           />
         </div>
       )}
@@ -112,7 +112,7 @@ export function WithdrawPage({
             placeholder="+7 999 000 00 00" 
             value={withdrawDestination}
             onChange={(e) => setWithdrawDestination(e.target.value)}
-            className="w-full px-4 py-3 bg-gray-50 border border-gray-300 focus:border-black focus:ring-1 focus:ring-black outline-none rounded-xl transition-all" 
+            className="w-full px-4 py-3 bg-gray-50 border border-gray-300 focus:border-black focus:ring-1 focus:ring-black outline-none rounded-xl transition-all panel-soft panel-outline" 
           />
         </div>
       )}
@@ -125,7 +125,7 @@ export function WithdrawPage({
             placeholder="T..." 
             value={withdrawDestination}
             onChange={(e) => setWithdrawDestination(e.target.value)}
-            className="w-full px-4 py-3 bg-gray-50 border border-gray-300 focus:border-black focus:ring-1 focus:ring-black outline-none rounded-xl transition-all" 
+            className="w-full px-4 py-3 bg-gray-50 border border-gray-300 focus:border-black focus:ring-1 focus:ring-black outline-none rounded-xl transition-all panel-soft panel-outline" 
           />
         </div>
       )}

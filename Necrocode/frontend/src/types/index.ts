@@ -1,4 +1,4 @@
-﻿export type Page = 'home' | 'catalog' | 'topup' | 'withdraw' | 'sell' | 'help' | 'about' | 'login' | 'register' | 'profile' | 'cart' | 'listing' | 'settings'
+﻿export type Page = 'home' | 'catalog' | 'topup' | 'withdraw' | 'sell' | 'help' | 'about' | 'login' | 'register' | 'profile' | 'cart' | 'listing' | 'settings' | 'chat'
 export type DeliveryMode = 'auto' | 'manual'
 
 export type User = {

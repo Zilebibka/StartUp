@@ -167,6 +167,10 @@
     background-color: var(--accent-main-hover) !important;
   }
 
+  .theme-dark .hover\:text-black:hover {
+    color: var(--accent-soft) !important;
+  }
+
   .theme-dark .border-gray-100,
   .theme-dark .border-gray-200,
   .theme-dark .border-gray-300 {
@@ -341,6 +345,84 @@
 
   .theme-dark .listing-tone-text {
     color: var(--text-main) !important;
+  }
+
+  .theme-dark .footer-shell {
+    background-color: var(--surface-2) !important;
+    border-color: var(--border-main) !important;
+    color: var(--text-main) !important;
+  }
+
+  .theme-dark .footer-shell .text-white {
+    color: var(--text-strong) !important;
+  }
+
+  .theme-dark .footer-shell .text-gray-500,
+  .theme-dark .footer-shell .text-gray-400,
+  .theme-dark .footer-muted {
+    color: var(--text-muted) !important;
+  }
+
+  .theme-dark .footer-link {
+    color: color-mix(in oklab, var(--text-main) 85%, white) !important;
+  }
+
+  .theme-dark .footer-link:hover {
+    color: var(--accent-soft) !important;
+  }
+
+  .theme-dark .panel-shell {
+    background-color: var(--surface-1) !important;
+    border-color: color-mix(in oklab, var(--border-main) 85%, transparent) !important;
+    box-shadow: 0 18px 40px rgba(2, 6, 23, 0.45);
+  }
+
+  .theme-dark .panel-outline {
+    border-color: color-mix(in oklab, var(--border-main) 85%, transparent) !important;
+  }
+
+  .theme-dark .panel-soft {
+    background-color: color-mix(in oklab, var(--surface-2) 70%, var(--surface-1)) !important;
+  }
+
+  .theme-dark .panel-button {
+    background-color: var(--surface-2) !important;
+    border-color: color-mix(in oklab, var(--border-main) 85%, transparent) !important;
+    color: var(--text-main) !important;
+  }
+
+  .theme-dark .panel-button:hover {
+    border-color: color-mix(in oklab, var(--accent-main) 50%, var(--border-main)) !important;
+    background-color: color-mix(in oklab, var(--surface-2) 82%, var(--accent-main) 18%) !important;
+  }
+
+  .theme-dark .panel-button-active {
+    background-color: color-mix(in oklab, var(--accent-main) 22%, var(--surface-2)) !important;
+    border-color: color-mix(in oklab, var(--accent-main) 65%, var(--border-main)) !important;
+    color: var(--text-strong) !important;
+    box-shadow: 0 10px 22px rgba(2, 6, 23, 0.35) !important;
+  }
+
+  .delivery-chip {
+    border: 1px solid transparent;
+  }
+
+  .delivery-chip-auto {
+    background-color: #1a3327;
+    color: #c7f2d3;
+    border-color: #2f5a43;
+  }
+
+  .delivery-chip-manual {
+    background-color: #e0ecff;
+    color: #1c3a6d;
+    border-color: #bfd2ef;
+  }
+
+  .theme-dark .delivery-chip-manual {
+    background-color: #182a4a;
+    color: #bfd6ff;
+    border-color: #2b4270;
   }
 
   .theme-dark .border-blue-100,

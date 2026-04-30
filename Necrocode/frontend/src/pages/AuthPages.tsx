@@ -395,6 +395,18 @@ export function ProfilePage({ currentUser, viewedUser, isOwnProfile = false, bal
             </div>
             
             <h2 className="text-2xl font-black text-gray-900 mb-1 z-10">{profileUser.displayName || profileUser.login}</h2>
+            {!isOwnProfile && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!profileUser.login) return
+                  window.location.href = `/chat?user=${encodeURIComponent(profileUser.login)}`
+                }}
+                className="mt-3 inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 hover:border-gray-300"
+              >
+                Написать
+              </button>
+            )}
             <div className="mb-3 text-xs font-bold text-gray-500">ID профиля: {profileUser.publicId || '—'}</div>
             <div className="flex items-center justify-center gap-1 mb-2 z-10">
               <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />

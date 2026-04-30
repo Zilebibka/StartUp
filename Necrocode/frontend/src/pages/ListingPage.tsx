@@ -196,7 +196,7 @@ export function ListingPage({ selectedListing, handleAddToCart, navigateToHome, 
 
           {/* Guarantees Box (Below images for volume) */}
            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-            <div className="bg-emerald-50 rounded-2xl p-5 border border-emerald-100 flex gap-4 items-start h-[106px] listing-tone-card">
+            <div className="bg-emerald-50 rounded-2xl p-5 border border-emerald-100 flex gap-4 items-start min-h-[106px] listing-tone-card">
               <div className="bg-emerald-100 p-2.5 rounded-xl text-emerald-600 shrink-0 listing-tone-icon">
                   <ShieldCheck className="h-6 w-6" />
                </div>
@@ -205,7 +205,7 @@ export function ListingPage({ selectedListing, handleAddToCart, navigateToHome, 
                 <p className="text-xs text-emerald-700 leading-relaxed font-medium listing-tone-text">Ваши средства замораживаются до момента успешной проверки и передачи всех прав на проект.</p>
                </div>
             </div>
-            <div className="bg-blue-50 rounded-2xl p-5 border border-blue-100 flex gap-4 items-start h-[106px] listing-tone-card">
+            <div className="bg-blue-50 rounded-2xl p-5 border border-blue-100 flex gap-4 items-start min-h-[106px] listing-tone-card">
               <div className="bg-blue-100 p-2.5 rounded-xl text-blue-600 shrink-0 listing-tone-icon">
                   <CheckCircle2 className="h-6 w-6" />
                </div>
@@ -244,14 +244,14 @@ export function ListingPage({ selectedListing, handleAddToCart, navigateToHome, 
             {/* Header & Seller */}
             <div>
               <div className="flex items-center gap-2 mb-4">
-                 <span className={`px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest ${selectedListing.deliveryMode === 'auto' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
+                 <span className={`delivery-chip px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest ${selectedListing.deliveryMode === 'auto' ? 'delivery-chip-auto' : 'delivery-chip-manual'}`}>
                    {selectedListing.deliveryMode === 'auto' ? 'Автовыдача' : 'Ручная передача'}
                  </span>
                  <span className="flex items-center gap-1.5 text-xs font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded-lg"><Clock className="w-3.5 h-3.5" /> ID: {selectedListing.id}</span>
               </div>
               <h1 className="text-3xl sm:text-4xl font-black text-gray-900 leading-none mb-5">{selectedListing.title}</h1>
               
-              <div className="flex items-center justify-between p-4 bg-gray-50 border border-gray-100 rounded-2xl min-h-[88px]">
+              <div className="flex items-center justify-between p-4 bg-gray-50 border border-gray-100 rounded-2xl min-h-[88px] panel-soft panel-outline">
                  <div className="flex items-center gap-3">
                    <div className="h-10 w-10 rounded-full bg-white border-2 border-gray-200 flex items-center justify-center text-gray-900 font-bold shadow-sm">
                      {selectedListing.ownerLogin.charAt(0).toUpperCase()}
@@ -278,22 +278,22 @@ export function ListingPage({ selectedListing, handleAddToCart, navigateToHome, 
             </div>
             
             {/* Action Card (Price + Cart) */}
-            <div className="bg-white border-2 border-gray-900 rounded-3xl p-6 shadow-xl shadow-gray-200/50">
+            <div className="bg-white border rounded-3xl p-6 shadow-xl shadow-gray-200/50 panel-shell">
                <p className="text-sm text-gray-500 font-bold uppercase tracking-widest mb-2">Разовый платеж</p>
                <div className="flex items-baseline gap-2 mb-6">
                   <p className="text-5xl font-black text-gray-900 tracking-tight">{selectedListing.price.toLocaleString('ru-RU')}</p>
                   <span className="text-2xl font-bold text-gray-400">₽</span>
                </div>
                
-               <button onClick={() => handleAddToCart(selectedListing.id)} className="w-full flex items-center justify-center rounded-xl bg-gray-900 hover:bg-black px-6 py-4 text-base text-white font-extrabold shadow-md shadow-gray-900/20 transition-all active:scale-[0.98] mb-3">
+              <button onClick={() => handleAddToCart(selectedListing.id)} className="w-full flex items-center justify-center rounded-xl bg-gray-900 hover:bg-black px-6 py-4 text-base text-white font-extrabold shadow-md shadow-gray-900/20 transition-all active:scale-[0.98] mb-3">
                   Добавить в корзину
                </button>
-               <button onClick={navigateToHome} className="w-full flex items-center justify-center rounded-xl border-2 border-gray-200 px-6 py-3.5 text-sm font-bold text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 transition-all active:scale-[0.98]">
+              <button onClick={navigateToHome} className="w-full flex items-center justify-center rounded-xl border-2 border-gray-200 px-6 py-3.5 text-sm font-bold text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 transition-all active:scale-[0.98] panel-button">
                   Продолжить покупки
                </button>
 
                {selectedListing.codeFileName && (
-                  <div className="mt-5 flex items-center justify-center gap-2 text-xs font-semibold text-gray-500 bg-gray-50 border border-gray-100 rounded-lg py-2">
+                  <div className="mt-5 flex items-center justify-center gap-2 text-xs font-semibold text-gray-500 bg-gray-50 border border-gray-100 rounded-lg py-2 panel-soft panel-outline">
                      <Link2 className="h-4 w-4 text-gray-400" /> Включен файл: <span className="text-gray-700">{selectedListing.codeFileName}</span>
                   </div>
                )}
@@ -301,12 +301,12 @@ export function ListingPage({ selectedListing, handleAddToCart, navigateToHome, 
 
             {/* Business Metrics Grid */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 bg-gray-50 border border-gray-100 rounded-2xl p-4">
+              <div className="col-span-2 bg-gray-50 border border-gray-100 rounded-2xl p-4 panel-soft panel-outline">
                 <p className="text-[10px] text-gray-400 uppercase tracking-widest font-black mb-1">Стек технологий</p>
                 <p className="text-sm font-bold text-gray-900">{selectedListing.techStack || 'Не указан'}</p>
               </div>
               {selectedListing.monetizationType && (
-                <div className="col-span-2 bg-gray-50 border border-gray-100 rounded-2xl p-4">
+                <div className="col-span-2 bg-gray-50 border border-gray-100 rounded-2xl p-4 panel-soft panel-outline">
                   <p className="text-[10px] text-gray-400 uppercase tracking-widest font-black mb-1">Монетизация</p>
                   <p className="text-sm font-bold text-gray-900">{selectedListing.monetizationType}</p>
                 </div>

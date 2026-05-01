@@ -7,10 +7,11 @@ interface ListingPageProps {
   selectedListing: Listing;
   handleAddToCart: (id: number) => void;
   navigateToHome: () => void;
+  apiBase: string;
   openUserProfile: (login: string) => void;
 }
 
-export function ListingPage({ selectedListing, handleAddToCart, navigateToHome, openUserProfile }: ListingPageProps) {
+export function ListingPage({ selectedListing, handleAddToCart, navigateToHome, apiBase, openUserProfile }: ListingPageProps) {
   type SellerReview = {
     id: number
     text: string
@@ -41,35 +42,32 @@ export function ListingPage({ selectedListing, handleAddToCart, navigateToHome, 
       return
     }
 
-    const rawReviews = localStorage.getItem(`profileReviews_${selectedListing.ownerLogin}`)
-    if (!rawReviews) {
-      setSellerReviews([])
-      return
-    }
-
-    try {
-      const parsed = JSON.parse(rawReviews)
-      if (!Array.isArray(parsed)) {
-        setSellerReviews([])
-        return
-      }
-
-      const normalized: SellerReview[] = parsed
-        .filter((review) => typeof review?.id === 'number' && typeof review?.text === 'string')
-        .map((review) => ({
+    const loadReviews = async () => {
+      try {
+        const res = await fetch(`${apiBase}/users/${encodeURIComponent(selectedListing.ownerLogin)}/reviews`, {
+          credentials: 'include'
+        })
+        if (!res.ok) {
+          setSellerReviews([])
+          return
+        }
+        const data = (await res.json()) as { reviews?: SellerReview[] }
+        const normalized = (data.reviews ?? []).map((review) => ({
           id: review.id,
           text: String(review.text),
           rating: Math.max(1, Math.min(5, Number(review.rating) || 0)),
           author: String(review.author || 'unknown'),
-          date: String(review.date || new Date().toISOString()),
+          date: String(review.date || new Date().toISOString())
         }))
-
-      normalized.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      setSellerReviews(normalized)
-    } catch {
-      setSellerReviews([])
+        normalized.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        setSellerReviews(normalized)
+      } catch {
+        setSellerReviews([])
+      }
     }
-  }, [selectedListing.ownerLogin])
+
+    void loadReviews()
+  }, [apiBase, selectedListing.ownerLogin])
 
   const averageRating = useMemo(() => {
     if (sellerReviews.length === 0) return 0

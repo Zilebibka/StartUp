@@ -38,14 +38,19 @@ type IncomingMessage struct {
 	Type string `json:"type"`
 	To   string `json:"to"`
 	Text string `json:"text"`
+	ClientID string `json:"clientId,omitempty"`
 }
 
 type OutgoingMessage struct {
-	Type   string `json:"type"`
-	From   string `json:"from"`
-	To     string `json:"to"`
-	Text   string `json:"text"`
-	SentAt string `json:"sentAt"`
+	Type       string `json:"type"`
+	ID         int64  `json:"id"`
+	From       string `json:"from"`
+	To         string `json:"to"`
+	Text       string `json:"text"`
+	SentAt     string `json:"sentAt"`
+	EditedAt   *string `json:"editedAt,omitempty"`
+	DeletedAt  *string `json:"deletedAt,omitempty"`
+	ClientID   string `json:"clientId,omitempty"`
 	Attachment *AttachmentPayload `json:"attachment,omitempty"`
 }
 
@@ -72,11 +77,29 @@ type ChatSummary struct {
 }
 
 type ChatHistoryMessage struct {
-	From   string `json:"from"`
-	To     string `json:"to"`
-	Text   string `json:"text"`
-	SentAt string `json:"sentAt"`
+	ID        int64  `json:"id"`
+	From      string `json:"from"`
+	To        string `json:"to"`
+	Text      string `json:"text"`
+	SentAt    string `json:"sentAt"`
+	EditedAt  *string `json:"editedAt,omitempty"`
+	DeletedAt *string `json:"deletedAt,omitempty"`
 	Attachment *AttachmentPayload `json:"attachment,omitempty"`
+}
+
+type EditMessageRequest struct {
+	Text string `json:"text"`
+}
+
+type DeleteMessagesRequest struct {
+	IDs []int64 `json:"ids"`
+}
+
+type MessageUpdate struct {
+	ID        int64  `json:"id"`
+	Text      string `json:"text"`
+	EditedAt  *string `json:"editedAt,omitempty"`
+	DeletedAt *string `json:"deletedAt,omitempty"`
 }
 
 type UploadAttachmentResponse struct {
@@ -232,14 +255,15 @@ RETURNING id;
 	}
 
 	sentAt := time.Now().UTC()
-	_, _ = h.DB.Exec(
-		`INSERT INTO chat_messages (sender_id, recipient_id, body, sent_at, attachment_id) VALUES ($1, $2, $3, $4, $5)`,
+	var messageID int64
+	_ = h.DB.QueryRow(
+		`INSERT INTO chat_messages (sender_id, recipient_id, body, sent_at, attachment_id) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
 		userID,
 		recipientID,
 		"",
 		sentAt,
 		attachmentID,
-	)
+	).Scan(&messageID)
 
 	attachment := &AttachmentPayload{
 		ID:        attachmentID,
@@ -251,6 +275,7 @@ RETURNING id;
 
 	payload, _ := json.Marshal(OutgoingMessage{
 		Type:       "message",
+		ID:         messageID,
 		From:       login,
 		To:         recipientLogin,
 		Text:       "",
@@ -258,10 +283,12 @@ RETURNING id;
 		Attachment: attachment,
 	})
 	h.Hub.SendTo(recipientLogin, payload)
+	h.Hub.SendTo(login, payload)
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(UploadAttachmentResponse{
 		Message: ChatHistoryMessage{
+			ID:         messageID,
 			From:       login,
 			To:         recipientLogin,
 			Text:       "",
@@ -345,6 +372,7 @@ SELECT DISTINCT ON (other.login)
 	other.display_name,
 	other.avatar_data_url,
 	CASE
+		WHEN m.deleted_at IS NOT NULL THEN 'Сообщение удалено'
 		WHEN m.body <> '' THEN m.body
 		WHEN a.kind = 'image' THEN 'Фото'
 		WHEN a.kind = 'voice' THEN 'Голосовое'
@@ -412,8 +440,8 @@ func (h Handler) GetChatHistory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	const historyQuery = `
-SELECT sender.login, recipient.login, m.body, m.sent_at,
-  a.id, a.kind, a.file_name, a.mime, a.size_bytes
+	SELECT m.id, sender.login, recipient.login, m.body, m.sent_at, m.edited_at, m.deleted_at,
+		a.id, a.kind, a.file_name, a.mime, a.size_bytes
 FROM chat_messages m
 JOIN users sender ON sender.id = m.sender_id
 JOIN users recipient ON recipient.id = m.recipient_id
@@ -436,17 +464,23 @@ LIMIT 500;
 	items := make([]ChatHistoryMessage, 0)
 	for rows.Next() {
 		var item ChatHistoryMessage
+		var messageID int64
 		var sentAt time.Time
+		var editedAt sql.NullTime
+		var deletedAt sql.NullTime
 		var attachmentID sql.NullInt64
 		var attachmentKind sql.NullString
 		var attachmentName sql.NullString
 		var attachmentMime sql.NullString
 		var attachmentSize sql.NullInt64
 		if err := rows.Scan(
+			&messageID,
 			&item.From,
 			&item.To,
 			&item.Text,
 			&sentAt,
+			&editedAt,
+			&deletedAt,
 			&attachmentID,
 			&attachmentKind,
 			&attachmentName,
@@ -455,7 +489,18 @@ LIMIT 500;
 		); err != nil {
 			continue
 		}
+		item.ID = messageID
 		item.SentAt = sentAt.UTC().Format(time.RFC3339)
+		if editedAt.Valid {
+			value := editedAt.Time.UTC().Format(time.RFC3339)
+			item.EditedAt = &value
+		}
+		if deletedAt.Valid {
+			value := deletedAt.Time.UTC().Format(time.RFC3339)
+			item.DeletedAt = &value
+			item.Text = ""
+			item.Attachment = nil
+		}
 		if attachmentID.Valid {
 			item.Attachment = &AttachmentPayload{
 				ID:        attachmentID.Int64,
@@ -470,6 +515,160 @@ LIMIT 500;
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"messages": items})
+}
+
+func (h Handler) EditMessage(w http.ResponseWriter, r *http.Request) {
+	userID, _ := r.Context().Value(middlewares.ContextUserIDKey).(int64)
+	login, _ := r.Context().Value(middlewares.ContextLoginKey).(string)
+	if userID == 0 || login == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	messageIDParam := chi.URLParam(r, "id")
+	messageID, err := strconv.ParseInt(messageIDParam, 10, 64)
+	if err != nil || messageID <= 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid id"})
+		return
+	}
+
+	var req EditMessageRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid payload"})
+		return
+	}
+
+	text := strings.TrimSpace(req.Text)
+	if text == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "text is required"})
+		return
+	}
+
+	updatedAt := time.Now().UTC()
+	var recipientID int64
+	var updatedText string
+	var editedAt time.Time
+	if err := h.DB.QueryRow(
+		`UPDATE chat_messages
+		 SET body = $1, edited_at = $2
+		 WHERE id = $3 AND sender_id = $4 AND deleted_at IS NULL
+		 RETURNING recipient_id, body, edited_at`,
+		text,
+		updatedAt,
+		messageID,
+		userID,
+	).Scan(&recipientID, &updatedText, &editedAt); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "message not found"})
+		return
+	}
+
+	var recipientLogin string
+	_ = h.DB.QueryRow(`SELECT login FROM users WHERE id = $1`, recipientID).Scan(&recipientLogin)
+	editedAtValue := editedAt.UTC().Format(time.RFC3339)
+
+	payload, _ := json.Marshal(OutgoingMessage{
+		Type:     "edit",
+		ID:       messageID,
+		From:     login,
+		To:       recipientLogin,
+		Text:     updatedText,
+		SentAt:   "",
+		EditedAt: &editedAtValue,
+	})
+	h.Hub.SendTo(recipientLogin, payload)
+	h.Hub.SendTo(login, payload)
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"message": MessageUpdate{
+			ID:       messageID,
+			Text:     updatedText,
+			EditedAt: &editedAtValue,
+		},
+	})
+}
+
+func (h Handler) DeleteMessages(w http.ResponseWriter, r *http.Request) {
+	userID, _ := r.Context().Value(middlewares.ContextUserIDKey).(int64)
+	login, _ := r.Context().Value(middlewares.ContextLoginKey).(string)
+	if userID == 0 || login == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	var req DeleteMessagesRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid payload"})
+		return
+	}
+	if len(req.IDs) == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "ids are required"})
+		return
+	}
+
+	deletedAt := time.Now().UTC()
+	rows, err := h.DB.Query(
+		`WITH updated AS (
+			UPDATE chat_messages
+			SET body = '', deleted_at = $1, attachment_id = NULL
+			WHERE sender_id = $2 AND id = ANY($3) AND deleted_at IS NULL
+			RETURNING id, recipient_id
+		)
+		SELECT updated.id, recipient.login
+		FROM updated
+		JOIN users recipient ON recipient.id = updated.recipient_id;`,
+		deletedAt,
+		userID,
+		req.IDs,
+	)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "failed to delete"})
+		return
+	}
+	defer rows.Close()
+
+	deletedAtValue := deletedAt.UTC().Format(time.RFC3339)
+	updates := make([]MessageUpdate, 0)
+	for rows.Next() {
+		var messageID int64
+		var recipientLogin string
+		if err := rows.Scan(&messageID, &recipientLogin); err != nil {
+			continue
+		}
+		payload, _ := json.Marshal(OutgoingMessage{
+			Type:      "delete",
+			ID:        messageID,
+			From:      login,
+			To:        recipientLogin,
+			Text:      "",
+			SentAt:    "",
+			DeletedAt: &deletedAtValue,
+		})
+		h.Hub.SendTo(recipientLogin, payload)
+		h.Hub.SendTo(login, payload)
+		updates = append(updates, MessageUpdate{ID: messageID, Text: "", DeletedAt: &deletedAtValue})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"messages": updates})
 }
 
 func (h Handler) HandleWS(w http.ResponseWriter, r *http.Request) {
@@ -538,27 +737,30 @@ func (h Handler) HandleWS(w http.ResponseWriter, r *http.Request) {
 		}
 
 		sentAt := time.Now().UTC()
-		payload, _ := json.Marshal(OutgoingMessage{
-			Type:   "message",
-			From:   client.login,
-			To:     incoming.To,
-			Text:   incoming.Text,
-			SentAt: sentAt.Format(time.RFC3339),
-		})
-
+		var messageID int64
 		if h.DB != nil {
 			var recipientID int64
 			if err := h.DB.QueryRow(`SELECT id FROM users WHERE login = $1`, incoming.To).Scan(&recipientID); err == nil {
-				_, _ = h.DB.Exec(
-					`INSERT INTO chat_messages (sender_id, recipient_id, body, sent_at) VALUES ($1, $2, $3, $4)`,
+				_ = h.DB.QueryRow(
+					`INSERT INTO chat_messages (sender_id, recipient_id, body, sent_at) VALUES ($1, $2, $3, $4) RETURNING id`,
 					claims.UserID,
 					recipientID,
 					incoming.Text,
 					sentAt,
-				)
+				).Scan(&messageID)
 			}
 		}
+		payload, _ := json.Marshal(OutgoingMessage{
+			Type:     "message",
+			ID:       messageID,
+			From:     client.login,
+			To:       incoming.To,
+			Text:     incoming.Text,
+			SentAt:   sentAt.Format(time.RFC3339),
+			ClientID: incoming.ClientID,
+		})
 		h.Hub.SendTo(incoming.To, payload)
+		h.Hub.SendTo(client.login, payload)
 	}
 }
 

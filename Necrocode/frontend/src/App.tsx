@@ -1331,6 +1331,7 @@ function App() {
               selectedListing={selectedListing}
               handleAddToCart={handleAddToCart}
               navigateToHome={navigateToHome}
+              apiBase={API_BASE}
               openUserProfile={(login) => {
                 void openUserProfile(login)
               }}
@@ -1451,6 +1452,8 @@ function App() {
               isOwnProfile={!!currentUser?.publicId && currentUser.publicId === viewedProfilePublicId}
               balance={balance}
               listings={listings}
+              apiBase={API_BASE}
+              accessToken={accessToken}
               handleEditListing={handleEditListing}
               openListingPage={openListingPage}
               openUserProfile={(login) => {

@@ -280,24 +280,28 @@ interface ProfilePageProps {
   isOwnProfile?: boolean;
   balance: number;
   listings: Listing[];
+  apiBase: string;
+  accessToken: string | null;
   handleEditListing: (listing: Listing) => void;
   openListingPage: (id: number) => void;
   openUserProfile: (login: string) => void;
 }
 
-export function ProfilePage({ currentUser, viewedUser, isOwnProfile = false, balance, listings, handleEditListing, openListingPage, openUserProfile }: ProfilePageProps) {
+export function ProfilePage({ currentUser, viewedUser, isOwnProfile = false, balance, listings, apiBase, accessToken, handleEditListing, openListingPage, openUserProfile }: ProfilePageProps) {
   const profileUser = viewedUser ?? currentUser;
   const userListings = listings.filter((l) => l.ownerLogin === profileUser?.login);
   const EMOJI_AVATARS = ['😎', '💀', '👻', '👾', '🤖', '🤠', '🦊', '🚀', '🔥', '👑', '🥺', '🤡', '🌟'];
   const [avatar, setAvatar] = useState(EMOJI_AVATARS[0]);
 
-  const [reviews, setReviews] = useState<{id: number, text: string, rating: number, author: string, date: string}[]>([]);
+  const [reviews, setReviews] = useState<{id: number, text: string, rating: number, author: string, date: string, createdAt?: string, updatedAt?: string}[]>([]);
   const [newReviewText, setNewReviewText] = useState("");
   const [newReviewRating, setNewReviewRating] = useState(5);
   const [reviewSort, setReviewSort] = useState("new");
+  const [isReviewSubmitting, setIsReviewSubmitting] = useState(false);
   const isImageAvatar = avatar.startsWith('data:image/');
 
   const canReviewThisProfile = !!currentUser?.login && !!profileUser?.login && currentUser.login !== profileUser.login;
+  const ownReview = reviews.find((review) => review.author === currentUser?.login);
 
   useEffect(() => {
     if (!profileUser?.login) {
@@ -318,34 +322,82 @@ export function ProfilePage({ currentUser, viewedUser, isOwnProfile = false, bal
       setAvatar(EMOJI_AVATARS[0]);
     }
 
-    const savedReviews = localStorage.getItem("profileReviews_" + profileUser.login);
-    if (savedReviews) {
-      try {
-        setReviews(JSON.parse(savedReviews));
-      } catch(e) {
-        setReviews([]);
-      }
-    } else {
-      setReviews([]);
-    }
   }, [profileUser, isOwnProfile]);
 
-  const handleAddReview = () => {
-    if (!canReviewThisProfile) return;
-    if (!newReviewText.trim() || !currentUser?.login || !profileUser?.login) return;
-    const newR = {
-      id: Date.now(),
-      text: newReviewText,
-      rating: newReviewRating,
-      author: currentUser.login,
-      date: new Date().toISOString()
-    };
-    const updated = [newR, ...reviews];
-    setReviews(updated);
-    setNewReviewText("");
-    setNewReviewRating(5);
-    localStorage.setItem("profileReviews_" + profileUser.login, JSON.stringify(updated));
-  };
+  const loadReviews = async (login: string) => {
+    try {
+      const res = await fetch(`${apiBase}/users/${encodeURIComponent(login)}/reviews`, {
+        credentials: 'include'
+      })
+      if (!res.ok) {
+        setReviews([])
+        return
+      }
+      const data = (await res.json()) as { reviews?: Array<{ id: number; text: string; rating: number; author: string; date: string; createdAt?: string; updatedAt?: string }> }
+      setReviews(data.reviews ?? [])
+    } catch {
+      setReviews([])
+    }
+  }
+
+  useEffect(() => {
+    if (!profileUser?.login) return
+    void loadReviews(profileUser.login)
+  }, [profileUser?.login])
+
+  useEffect(() => {
+    if (!ownReview) {
+      setNewReviewText("")
+      setNewReviewRating(5)
+      return
+    }
+    setNewReviewText(ownReview.text)
+    setNewReviewRating(ownReview.rating)
+  }, [ownReview?.id])
+
+  const handleSaveReview = async () => {
+    if (!canReviewThisProfile || !profileUser?.login || !accessToken) return
+    if (!newReviewText.trim()) return
+
+    setIsReviewSubmitting(true)
+    try {
+      const method = ownReview ? 'PATCH' : 'POST'
+      const res = await fetch(`${apiBase}/users/${encodeURIComponent(profileUser.login)}/reviews`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`
+        },
+        credentials: 'include',
+        body: JSON.stringify({ text: newReviewText.trim(), rating: newReviewRating })
+      })
+      if (res.ok) {
+        await loadReviews(profileUser.login)
+      }
+    } finally {
+      setIsReviewSubmitting(false)
+    }
+  }
+
+  const handleDeleteReview = async () => {
+    if (!canReviewThisProfile || !profileUser?.login || !accessToken || !ownReview) return
+
+    setIsReviewSubmitting(true)
+    try {
+      const res = await fetch(`${apiBase}/users/${encodeURIComponent(profileUser.login)}/reviews`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        },
+        credentials: 'include'
+      })
+      if (res.ok) {
+        await loadReviews(profileUser.login)
+      }
+    } finally {
+      setIsReviewSubmitting(false)
+    }
+  }
 
   const avgRating = reviews.length > 0 ? (reviews.reduce((acc, current) => acc + current.rating, 0) / reviews.length).toFixed(1) : "0.0";
 
@@ -541,7 +593,9 @@ export function ProfilePage({ currentUser, viewedUser, isOwnProfile = false, bal
             </div>
 
             {canReviewThisProfile && <div className="mb-8 p-5 bg-gray-50 rounded-2xl border border-gray-100">
-              <h3 className="font-extrabold text-gray-900 text-sm mb-3 uppercase tracking-wider">Оставить отзыв</h3>
+              <h3 className="font-extrabold text-gray-900 text-sm mb-3 uppercase tracking-wider">
+                {ownReview ? 'Ваш отзыв' : 'Оставить отзыв'}
+              </h3>
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-1.5 p-1">
                   {renderStars(newReviewRating, setNewReviewRating)}
@@ -553,14 +607,24 @@ export function ProfilePage({ currentUser, viewedUser, isOwnProfile = false, bal
                   placeholder="Напишите, как прошла сделка..." 
                   className="w-full min-h-[100px] border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-black resize-y"
                 ></textarea>
-                <div className="flex justify-stretch sm:justify-end">
+                <div className="flex flex-col sm:flex-row gap-2 justify-stretch sm:justify-end">
+                  {ownReview && (
+                    <button
+                      type="button"
+                      onClick={handleDeleteReview}
+                      disabled={isReviewSubmitting}
+                      className="w-full sm:w-auto px-6 py-2.5 border border-red-200 text-red-600 font-extrabold text-sm rounded-xl hover:border-red-300 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Удалить отзыв
+                    </button>
+                  )}
                   <button 
                     type="button" 
-                    onClick={handleAddReview}
-                    disabled={!newReviewText.trim() || !currentUser}
+                    onClick={handleSaveReview}
+                    disabled={!newReviewText.trim() || !currentUser || !accessToken || isReviewSubmitting}
                     className="w-full sm:w-auto px-6 py-2.5 bg-black text-white font-extrabold text-sm rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Отправить отзыв
+                    {ownReview ? 'Сохранить изменения' : 'Отправить отзыв'}
                   </button>
                 </div>
                 {!currentUser && <p className="text-xs text-gray-500">Чтобы оставить отзыв, войдите в аккаунт.</p>}

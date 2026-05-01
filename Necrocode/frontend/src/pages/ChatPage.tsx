@@ -33,16 +33,24 @@ type ChatMessage = {
   from: string
   to: string
   attachment?: ChatAttachment
+  clientId?: string
+  editedAt?: string
+  deletedAt?: string
+  pending?: boolean
 }
 
 type WsPayload = {
-  type: 'handshake' | 'message' | 'error'
+  type: 'handshake' | 'message' | 'edit' | 'delete' | 'error'
+  id?: number
   from?: string
   to?: string
   text?: string
   sentAt?: string
+  editedAt?: string
+  deletedAt?: string
   message?: string
   attachment?: ChatAttachment
+  clientId?: string
 }
 
 type VoiceWaveformProps = {
@@ -240,6 +248,10 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
   const [draft, setDraft] = useState('')
   const [uploadError, setUploadError] = useState('')
   const [isRecording, setIsRecording] = useState(false)
+  const [selectedMessageIds, setSelectedMessageIds] = useState<Set<number>>(new Set())
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; message: ChatMessage } | null>(null)
+  const [editingMessageId, setEditingMessageId] = useState<number | null>(null)
+  const [editDraft, setEditDraft] = useState('')
   const wsRef = useRef<WebSocket | null>(null)
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -256,6 +268,13 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
   const maxFileBytes = 5 * 1024 * 1024
   const maxImageBytes = 2 * 1024 * 1024
 
+  const createClientId = () => {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+      return crypto.randomUUID()
+    }
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  }
+
   const buildAttachmentUrl = (id: number) => {
     if (!accessToken) return ''
     return `${apiBase}/chats/attachments/${id}?token=${encodeURIComponent(accessToken)}`
@@ -269,9 +288,56 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
 
   const getMessagePreview = (message?: ChatMessage) => {
     if (!message) return 'Нет сообщений'
+    if (message.deletedAt) return 'Сообщение удалено'
     if (message.text.trim()) return message.text
     if (message.attachment) return getAttachmentLabel(message.attachment)
     return 'Нет сообщений'
+  }
+
+  const resolveChatLogin = (from?: string, to?: string) => {
+    if (!from || !to) return null
+    return from === currentLogin ? to : from
+  }
+
+  const isMessageSelected = (message: ChatMessage) => message.id > 0 && selectedMessageIds.has(message.id)
+
+  const clearSelection = () => setSelectedMessageIds(new Set())
+
+  const toggleMessageSelection = (message: ChatMessage) => {
+    if (message.id <= 0) return
+    setSelectedMessageIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(message.id)) {
+        next.delete(message.id)
+      } else {
+        next.add(message.id)
+      }
+      return next
+    })
+  }
+
+  const updateChatPreview = (login: string, messages: ChatMessage[]) => {
+    const last = messages[messages.length - 1]
+    setChatUsers((prev) => prev.map((user) => (
+      user.login === login ? { ...user, lastMessage: last } : user
+    )))
+  }
+
+  const updateMessageById = (login: string, messageId: number, updater: (message: ChatMessage) => ChatMessage) => {
+    setMessagesByLogin((prev) => {
+      const list = prev[login]
+      if (!list) return prev
+      let changed = false
+      const nextList = list.map((message) => {
+        if (message.id !== messageId) return message
+        changed = true
+        return updater(message)
+      })
+      if (!changed) return prev
+      const next = { ...prev, [login]: nextList }
+      updateChatPreview(login, nextList)
+      return next
+    })
   }
 
   useEffect(() => {
@@ -280,59 +346,149 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
     const apiUrl = new URL(apiBase, window.location.origin)
     const wsProtocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:'
     const wsUrl = `${wsProtocol}//${apiUrl.host}${apiUrl.pathname.replace(/\/$/, '')}/ws/chat?token=${encodeURIComponent(accessToken)}`
-    const ws = new WebSocket(wsUrl)
-    wsRef.current = ws
 
-    ws.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data) as WsPayload
-        if (payload.type === 'message' && payload.from && payload.to && payload.text) {
-          const from = payload.from
-          const time = payload.sentAt ? new Date(payload.sentAt) : new Date()
-          const formatted = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    let reconnectTimer: number | undefined
+    let reconnectAttempts = 0
+    let shouldReconnect = true
 
-          setMessagesByLogin((prev) => {
-            const next = { ...prev }
-            const list = next[from] ? [...next[from]] : []
-            list.push({
-              id: Date.now(),
-              type: 'incoming',
-              text: payload.text ?? '',
-              time: formatted,
-              from: from,
-              to: payload.to ?? '',
-              attachment: payload.attachment
-            })
-            next[from] = list
-            return next
-          })
+    const scheduleReconnect = () => {
+      if (!shouldReconnect) return
+      const baseDelay = 1000
+      const maxDelay = 10000
+      const delay = Math.min(maxDelay, baseDelay * Math.pow(2, reconnectAttempts))
+      reconnectAttempts += 1
+      reconnectTimer = window.setTimeout(connect, delay)
+    }
 
-          setChatUsers((prev) => {
+    const connect = () => {
+      if (!shouldReconnect) return
+      const ws = new WebSocket(wsUrl)
+      wsRef.current = ws
+
+      ws.onopen = () => {
+        reconnectAttempts = 0
+      }
+
+      ws.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data) as WsPayload
+          if (payload.type === 'message' && payload.from && payload.to && payload.text !== undefined) {
+            const from = payload.from
+            const to = payload.to
+            const chatLogin = resolveChatLogin(from, to)
+            if (!chatLogin) return
+
+            const time = payload.sentAt ? new Date(payload.sentAt) : new Date()
+            const formatted = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            const messageId = payload.id && payload.id > 0 ? payload.id : Date.now()
+            const messageType: ChatMessage['type'] = from === currentLogin ? 'outgoing' : 'incoming'
             const nextMessage: ChatMessage = {
-              id: Date.now(),
-              type: 'incoming',
+              id: messageId,
+              type: messageType,
               text: payload.text ?? '',
               time: formatted,
               from,
-              to: payload.to ?? '',
-              attachment: payload.attachment
+              to,
+              attachment: payload.attachment,
+              clientId: payload.clientId,
+              editedAt: payload.editedAt,
+              deletedAt: payload.deletedAt,
+              pending: false
             }
-            const existing = prev.find((u) => u.login === from)
-            if (!existing) {
-              return [{ login: from, lastMessage: nextMessage }, ...prev]
-            }
-            return prev.map((u) => (u.login === from ? { ...u, lastMessage: nextMessage } : u))
-          })
 
-          onIncomingMessage(from)
+            setMessagesByLogin((prev) => {
+              const next = { ...prev }
+              const list = next[chatLogin] ? [...next[chatLogin]] : []
+              let updated = false
+
+              if (payload.clientId) {
+                const index = list.findIndex((item) => item.clientId === payload.clientId)
+                if (index >= 0) {
+                  list[index] = { ...list[index], ...nextMessage }
+                  updated = true
+                }
+              }
+
+              if (!updated && payload.id) {
+                const index = list.findIndex((item) => item.id === payload.id)
+                if (index >= 0) {
+                  list[index] = { ...list[index], ...nextMessage }
+                  updated = true
+                }
+              }
+
+              if (!updated) {
+                list.push(nextMessage)
+              }
+              next[chatLogin] = list
+              updateChatPreview(chatLogin, list)
+              return next
+            })
+
+            setChatUsers((prev) => {
+              const existing = prev.find((u) => u.login === chatLogin)
+              if (!existing) {
+                return [{ login: chatLogin, lastMessage: nextMessage }, ...prev]
+              }
+              return prev.map((u) => (u.login === chatLogin ? { ...u, lastMessage: nextMessage } : u))
+            })
+
+            if (from !== currentLogin) {
+              onIncomingMessage(from)
+            }
+            return
+          }
+
+          if (payload.type === 'edit' && payload.id && payload.from && payload.to) {
+            const chatLogin = resolveChatLogin(payload.from, payload.to)
+            if (!chatLogin) return
+            updateMessageById(chatLogin, payload.id, (message) => ({
+              ...message,
+              text: payload.text ?? message.text,
+              editedAt: payload.editedAt ?? message.editedAt,
+              pending: false
+            }))
+            return
+          }
+
+          if (payload.type === 'delete' && payload.id && payload.from && payload.to) {
+            const chatLogin = resolveChatLogin(payload.from, payload.to)
+            if (!chatLogin) return
+            updateMessageById(chatLogin, payload.id, (message) => ({
+              ...message,
+              text: '',
+              attachment: undefined,
+              deletedAt: payload.deletedAt ?? message.deletedAt,
+              pending: false
+            }))
+          }
+        } catch {
+          // ignore malformed messages
         }
-      } catch {
-        // ignore malformed messages
+      }
+
+      ws.onclose = () => {
+        if (wsRef.current === ws) {
+          wsRef.current = null
+        }
+        scheduleReconnect()
+      }
+
+      ws.onerror = () => {
+        try {
+          ws.close()
+        } catch {
+          // ignore
+        }
       }
     }
 
+    connect()
+
     return () => {
-      ws.close()
+      shouldReconnect = false
+      if (reconnectTimer) window.clearTimeout(reconnectTimer)
+      if (wsRef.current) wsRef.current.close()
       wsRef.current = null
     }
   }, [accessToken, apiBase, onIncomingMessage])
@@ -420,10 +576,13 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
         if (!res.ok) return
         const data = (await res.json()) as {
           messages?: Array<{
+            id: number
             from: string
             to: string
             text: string
             sentAt: string
+            editedAt?: string
+            deletedAt?: string
             attachment?: ChatAttachment
           }>
         }
@@ -433,14 +592,17 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
           const time = msg.sentAt ? new Date(msg.sentAt) : new Date()
           const formatted = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           const messageType: ChatMessage['type'] = msg.from === currentLogin ? 'outgoing' : 'incoming'
+          const isDeleted = !!msg.deletedAt
           return {
-            id: time.getTime() + index,
+            id: msg.id || time.getTime() + index,
             type: messageType,
-            text: msg.text,
+            text: isDeleted ? '' : msg.text,
             time: formatted,
             from: msg.from,
             to: msg.to,
-            attachment: msg.attachment
+            attachment: isDeleted ? undefined : msg.attachment,
+            editedAt: msg.editedAt,
+            deletedAt: msg.deletedAt
           }
         })
 
@@ -459,6 +621,26 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
       isActive = false
     }
   }, [accessToken, activeLogin, apiBase, currentLogin])
+
+  useEffect(() => {
+    clearSelection()
+    setContextMenu(null)
+    setEditingMessageId(null)
+    setEditDraft('')
+  }, [activeLogin])
+
+  useEffect(() => {
+    if (!contextMenu) return
+    const handleClose = () => setContextMenu(null)
+    window.addEventListener('click', handleClose)
+    window.addEventListener('scroll', handleClose, true)
+    window.addEventListener('resize', handleClose)
+    return () => {
+      window.removeEventListener('click', handleClose)
+      window.removeEventListener('scroll', handleClose, true)
+      window.removeEventListener('resize', handleClose)
+    }
+  }, [contextMenu])
 
   useEffect(() => {
     const params = new URLSearchParams(location.search)
@@ -559,19 +741,32 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
         setUploadError('Не удалось отправить файл. Попробуйте еще раз.')
         return
       }
-      const data = (await res.json()) as { message?: { from: string; to: string; text: string; sentAt: string; attachment?: ChatAttachment } }
+      const data = (await res.json()) as {
+        message?: {
+          id: number
+          from: string
+          to: string
+          text: string
+          sentAt: string
+          editedAt?: string
+          deletedAt?: string
+          attachment?: ChatAttachment
+        }
+      }
       if (!data.message || !data.message.attachment) return
 
       const time = data.message.sentAt ? new Date(data.message.sentAt) : new Date()
       const formatted = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       const newMessage: ChatMessage = {
-        id: time.getTime(),
+        id: data.message.id || time.getTime(),
         type: 'outgoing',
         text: data.message.text ?? '',
         time: formatted,
         from: currentLogin,
         to: activeLogin,
-        attachment: data.message.attachment
+        attachment: data.message.attachment,
+        editedAt: data.message.editedAt,
+        deletedAt: data.message.deletedAt
       }
 
       setMessagesByLogin((prev) => {
@@ -659,22 +854,26 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
     if (!socket || socket.readyState !== WebSocket.OPEN) return
 
     const text = draft.trim()
-    const outgoing: WsPayload = { type: 'message', to: activeLogin, text }
+    const clientId = createClientId()
+    const outgoing: WsPayload = { type: 'message', to: activeLogin, text, clientId }
     socket.send(JSON.stringify(outgoing))
 
     const now = new Date()
     const formatted = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    const tempId = -Date.now()
 
     setMessagesByLogin((prev) => {
       const next = { ...prev }
       const list = next[activeLogin] ? [...next[activeLogin]] : []
       const nextMessage = {
-        id: Date.now(),
+        id: tempId,
         type: 'outgoing' as const,
         text,
         time: formatted,
         from: currentLogin,
-        to: activeLogin
+        to: activeLogin,
+        clientId,
+        pending: true
       }
       list.push(nextMessage)
       next[activeLogin] = list
@@ -683,12 +882,14 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
 
     setChatUsers((prev) => {
       const nextMessage = {
-        id: Date.now(),
+        id: tempId,
         type: 'outgoing' as const,
         text,
         time: formatted,
         from: currentLogin,
-        to: activeLogin
+        to: activeLogin,
+        clientId,
+        pending: true
       }
       const existing = prev.find((user) => user.login === activeLogin)
       if (!existing) {
@@ -702,6 +903,95 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
     })
 
     setDraft('')
+  }
+
+  const canEditMessage = (message: ChatMessage) => (
+    message.type === 'outgoing' && !message.deletedAt && message.id > 0 && !message.pending
+  )
+
+  const canDeleteMessage = (message: ChatMessage) => (
+    message.type === 'outgoing' && !message.deletedAt && message.id > 0 && !message.pending
+  )
+
+  const beginEdit = (message: ChatMessage) => {
+    if (!canEditMessage(message)) return
+    setEditingMessageId(message.id)
+    setEditDraft(message.text)
+    setContextMenu(null)
+  }
+
+  const cancelEdit = () => {
+    setEditingMessageId(null)
+    setEditDraft('')
+  }
+
+  const saveEdit = async () => {
+    if (!editingMessageId || !activeLogin || !accessToken) return
+    const text = editDraft.trim()
+    if (!text) return
+
+    try {
+      const res = await fetch(`${apiBase}/chats/messages/${editingMessageId}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({ text })
+      })
+      if (!res.ok) return
+      const data = (await res.json()) as { message?: { id: number; text: string; editedAt?: string } }
+      const editedAt = data.message?.editedAt ?? new Date().toISOString()
+
+      updateMessageById(activeLogin, editingMessageId, (message) => ({
+        ...message,
+        text,
+        editedAt,
+        pending: false
+      }))
+      cancelEdit()
+    } catch {
+      // ignore edit errors
+    }
+  }
+
+  const deleteSelectedMessages = async () => {
+    if (!activeLogin || !accessToken) return
+    const ids = activeMessages
+      .filter((message) => canDeleteMessage(message) && selectedMessageIds.has(message.id))
+      .map((message) => message.id)
+    if (ids.length === 0) return
+
+    try {
+      const res = await fetch(`${apiBase}/chats/messages/delete`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({ ids })
+      })
+      if (!res.ok) return
+      const deletedAt = new Date().toISOString()
+      ids.forEach((id) => {
+        updateMessageById(activeLogin, id, (message) => ({
+          ...message,
+          text: '',
+          attachment: undefined,
+          deletedAt,
+          pending: false
+        }))
+      })
+      clearSelection()
+      setContextMenu(null)
+      if (editingMessageId && ids.includes(editingMessageId)) {
+        cancelEdit()
+      }
+    } catch {
+      // ignore delete errors
+    }
   }
 
   return (
@@ -835,60 +1125,164 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
                   className={`flex ${message.type === 'outgoing' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[92%] sm:max-w-[82%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
+                    onClick={(event) => {
+                      if (event.ctrlKey || event.metaKey || selectedMessageIds.size > 0) {
+                        event.preventDefault()
+                        toggleMessageSelection(message)
+                      }
+                    }}
+                    onContextMenu={(event) => {
+                      if (!canEditMessage(message) && !canDeleteMessage(message) && selectedMessageIds.size === 0) {
+                        return
+                      }
+                      event.preventDefault()
+                      if (canDeleteMessage(message) && !selectedMessageIds.has(message.id)) {
+                        setSelectedMessageIds(new Set([message.id]))
+                      }
+                      setContextMenu({ x: event.clientX, y: event.clientY, message })
+                    }}
+                    className={`max-w-[92%] sm:max-w-[82%] rounded-2xl px-4 py-3 text-sm shadow-sm transition ${
                       message.type === 'outgoing'
                         ? 'bg-gray-900 text-white'
                         : 'bg-white border border-gray-100 text-gray-800'
-                    }`}
+                    } ${isMessageSelected(message) ? 'ring-2 ring-black/40' : ''} ${message.pending ? 'opacity-70' : ''}`}
                   >
-                    {message.attachment && (
-                      <div className="mb-2">
-                        {message.attachment.kind === 'image' && (
-                          <div className="space-y-2">
-                            <img
-                              src={buildAttachmentUrl(message.attachment.id)}
-                              alt={message.attachment.fileName}
-                              className="max-h-64 w-full rounded-xl object-cover"
-                            />
-                            <a
-                              href={buildAttachmentUrl(message.attachment.id)}
-                              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold text-gray-700 hover:border-gray-300"
-                              download={message.attachment.fileName}
-                            >
-                              Скачать фото
-                            </a>
+                    {message.deletedAt ? (
+                      <p className="text-xs italic text-gray-300">Сообщение удалено</p>
+                    ) : editingMessageId === message.id ? (
+                      <div className="space-y-2">
+                        <textarea
+                          value={editDraft}
+                          onChange={(e) => setEditDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Escape') cancelEdit()
+                            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) saveEdit()
+                          }}
+                          rows={3}
+                          className="w-full rounded-lg border border-gray-200 bg-white/90 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-black"
+                        />
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={saveEdit}
+                            className="rounded-lg bg-black px-3 py-1.5 text-xs font-bold text-white"
+                          >
+                            Сохранить
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelEdit}
+                            className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-600"
+                          >
+                            Отмена
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {message.attachment && (
+                          <div className="mb-2">
+                            {message.attachment.kind === 'image' && (
+                              <div className="space-y-2">
+                                <img
+                                  src={buildAttachmentUrl(message.attachment.id)}
+                                  alt={message.attachment.fileName}
+                                  className="max-h-64 w-full rounded-xl object-cover"
+                                />
+                                <a
+                                  href={buildAttachmentUrl(message.attachment.id)}
+                                  className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold text-gray-700 hover:border-gray-300"
+                                  download={message.attachment.fileName}
+                                >
+                                  Скачать фото
+                                </a>
+                              </div>
+                            )}
+                            {message.attachment.kind === 'voice' && (
+                              <VoicePlayer
+                                src={buildAttachmentUrl(message.attachment.id)}
+                                variant={message.type}
+                              />
+                            )}
+                            {message.attachment.kind === 'file' && (
+                              <a
+                                href={buildAttachmentUrl(message.attachment.id)}
+                                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold text-gray-700 hover:border-gray-300"
+                                download={message.attachment.fileName}
+                              >
+                                {message.attachment.fileName}
+                              </a>
+                            )}
                           </div>
                         )}
-                        {message.attachment.kind === 'voice' && (
-                          <VoicePlayer
-                            src={buildAttachmentUrl(message.attachment.id)}
-                            variant={message.type}
-                          />
+                        {message.text.trim() && (
+                          <p className="leading-relaxed break-words whitespace-pre-wrap">{message.text}</p>
                         )}
-                        {message.attachment.kind === 'file' && (
-                          <a
-                            href={buildAttachmentUrl(message.attachment.id)}
-                            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold text-gray-700 hover:border-gray-300"
-                            download={message.attachment.fileName}
-                          >
-                            {message.attachment.fileName}
-                          </a>
-                        )}
-                      </div>
-                    )}
-                    {message.text.trim() && (
-                      <p className="leading-relaxed break-words whitespace-pre-wrap">{message.text}</p>
+                      </>
                     )}
                     <div className={`mt-2 text-[10px] font-semibold ${
                       message.type === 'outgoing' ? 'text-white/70' : 'text-gray-400'
                     }`}>
                       {message.time}
+                      {message.editedAt && !message.deletedAt && (
+                        <span className="ml-2 text-[10px] font-semibold">Изменено</span>
+                      )}
+                      {message.pending && (
+                        <span className="ml-2 text-[10px] font-semibold">Отправка...</span>
+                      )}
                     </div>
                   </div>
                 </div>
               ))
             )}
           </div>
+
+          {contextMenu && (
+            <div
+              className="fixed z-50 min-w-[180px] rounded-xl border border-gray-200 bg-white shadow-lg p-2 text-sm"
+              style={{ left: contextMenu.x, top: contextMenu.y }}
+            >
+              {selectedMessageIds.size > 0 && (
+                <button
+                  type="button"
+                  onClick={deleteSelectedMessages}
+                  className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-red-600 hover:bg-red-50"
+                >
+                  Удалить выбранные ({selectedMessageIds.size})
+                </button>
+              )}
+              {selectedMessageIds.size <= 1 && canEditMessage(contextMenu.message) && (
+                <button
+                  type="button"
+                  onClick={() => beginEdit(contextMenu.message)}
+                  className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-100"
+                >
+                  Редактировать
+                </button>
+              )}
+              {selectedMessageIds.size === 0 && canDeleteMessage(contextMenu.message) && (
+                <button
+                  type="button"
+                  onClick={deleteSelectedMessages}
+                  className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-red-600 hover:bg-red-50"
+                >
+                  Удалить
+                </button>
+              )}
+              {selectedMessageIds.size > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearSelection()
+                    setContextMenu(null)
+                  }}
+                  className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-gray-600 hover:bg-gray-100"
+                >
+                  Снять выделение
+                </button>
+              )}
+            </div>
+          )}
 
           {activeLogin && (
             <div className="border-t border-gray-100 bg-white px-4 py-4">

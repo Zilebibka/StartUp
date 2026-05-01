@@ -42,6 +42,7 @@ func NewRouter(db *sql.DB) http.Handler {
 
 		r.Get("/users/search", userHandler.Search)
 		r.Get("/users/{publicID}", userHandler.GetByPublicID)
+		r.Get("/users/{login}/reviews", userHandler.ListReviewsByLogin)
 		r.Get("/ws/chat", chatHandler.HandleWS)
 		r.Get("/chats/attachments/{id}", chatHandler.DownloadAttachment)
 
@@ -62,6 +63,11 @@ func NewRouter(db *sql.DB) http.Handler {
 			r.Get("/chats", chatHandler.ListChats)
 			r.Get("/chats/{login}", chatHandler.GetChatHistory)
 			r.Post("/chats/{login}/attachments", chatHandler.UploadAttachment)
+			r.Patch("/chats/messages/{id}", chatHandler.EditMessage)
+			r.Post("/chats/messages/delete", chatHandler.DeleteMessages)
+			r.Post("/users/{login}/reviews", userHandler.CreateReview)
+			r.Patch("/users/{login}/reviews", userHandler.UpdateReview)
+			r.Delete("/users/{login}/reviews", userHandler.DeleteReview)
 			r.Post("/listings", marketHandler.CreateListing)
 			r.Put("/listings/{listingID}", marketHandler.UpdateListing)
 			r.Delete("/listings/{listingID}", marketHandler.DeleteListing)

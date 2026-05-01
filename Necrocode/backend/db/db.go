@@ -152,6 +152,10 @@ CREATE INDEX IF NOT EXISTS cart_items_user_id_idx ON cart_items(user_id);
 		return err
 	}
 
+	if err := ensureUserReviewsTable(db); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -217,6 +221,8 @@ CREATE INDEX IF NOT EXISTS chat_messages_sender_recipient_idx ON chat_messages(s
 CREATE INDEX IF NOT EXISTS chat_messages_recipient_sender_idx ON chat_messages(recipient_id, sender_id, sent_at DESC);
 CREATE INDEX IF NOT EXISTS chat_messages_sent_at_idx ON chat_messages(sent_at DESC);
 ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS attachment_id BIGINT REFERENCES chat_attachments(id) ON DELETE SET NULL;
+ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
+ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 `
 
 	if _, err := db.Exec(chatMessagesTableQuery); err != nil {
@@ -246,6 +252,30 @@ CREATE INDEX IF NOT EXISTS chat_attachments_recipient_idx ON chat_attachments(re
 
 	if _, err := db.Exec(chatAttachmentsTableQuery); err != nil {
 		return fmt.Errorf("create chat_attachments table: %w", err)
+	}
+
+	return nil
+}
+
+func ensureUserReviewsTable(db *sql.DB) error {
+	const userReviewsTableQuery = `
+CREATE TABLE IF NOT EXISTS user_reviews (
+	id BIGSERIAL PRIMARY KEY,
+	reviewer_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+	target_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+	rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+	body TEXT NOT NULL,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS user_reviews_unique_idx ON user_reviews(reviewer_id, target_user_id);
+CREATE INDEX IF NOT EXISTS user_reviews_target_idx ON user_reviews(target_user_id, updated_at DESC);
+ALTER TABLE user_reviews ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
+`
+
+	if _, err := db.Exec(userReviewsTableQuery); err != nil {
+		return fmt.Errorf("create user_reviews table: %w", err)
 	}
 
 	return nil

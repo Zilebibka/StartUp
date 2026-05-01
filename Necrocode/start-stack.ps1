@@ -6,7 +6,7 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
   Write-Error "Docker CLI не найден. Установите Docker Desktop и повторите запуск."
 }
 
-cmd /c "docker info >nul 2>nul"
+$null = & docker version --format "{{.Server.Version}}" 2>$null
 if ($LASTEXITCODE -ne 0) {
   Write-Error "Docker Desktop не запущен или недоступен. Запустите Docker Desktop и повторите попытку."
 }

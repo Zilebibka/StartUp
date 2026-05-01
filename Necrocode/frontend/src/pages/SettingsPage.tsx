@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Bell, Camera, Lock, Settings, Shield, UserRound, UserX } from 'lucide-react'
 import { motion } from 'framer-motion'
 import type { User } from '../types'
@@ -27,6 +27,7 @@ interface SettingsPageProps {
     email?: string
     newPassword?: string
     displayName?: string
+    avatarDataUrl?: string
   }) => Promise<void>
   onAccountUpdated: (user: User) => void
   onRequestEmailChangeCode: (newEmail: string) => Promise<void>
@@ -99,19 +100,13 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
   const [securityError, setSecurityError] = useState('')
   const [isSavingSecurity, setIsSavingSecurity] = useState(false)
 
-  const [avatarDataUrl, setAvatarDataUrl] = useState<string>(() => {
-    const raw = localStorage.getItem(PROFILE_SETTINGS_KEY_PREFIX + currentUser.login)
-    if (!raw) return ''
-
-    try {
-      const parsed = JSON.parse(raw) as { avatar?: string }
-      return parsed.avatar && isDataImage(parsed.avatar) ? parsed.avatar : ''
-    } catch {
-      return ''
-    }
-  })
+  const [avatarDataUrl, setAvatarDataUrl] = useState<string>(() => currentUser.avatarDataUrl ?? '')
   const [avatarMessage, setAvatarMessage] = useState('')
   const [avatarError, setAvatarError] = useState('')
+
+  useEffect(() => {
+    setAvatarDataUrl(currentUser.avatarDataUrl ?? '')
+  }, [currentUser.avatarDataUrl])
 
   const [privacy, setPrivacy] = useState<PrivacyState>(() => {
     const raw = localStorage.getItem(PRIVACY_KEY_PREFIX + currentUser.login)
@@ -162,14 +157,14 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
     [],
   )
 
-  const persistProfileSettings = (next: Partial<{ dob: string; avatar: string }>) => {
+  const persistProfileSettings = (next: Partial<{ dob: string }>) => {
     const key = PROFILE_SETTINGS_KEY_PREFIX + currentUser.login
     const raw = localStorage.getItem(key)
-    let prev: { dob?: string; avatar?: string } = {}
+    let prev: { dob?: string } = {}
 
     if (raw) {
       try {
-        prev = JSON.parse(raw) as { dob?: string; avatar?: string }
+        prev = JSON.parse(raw) as { dob?: string }
       } catch {
         prev = {}
       }
@@ -185,17 +180,22 @@ export function SettingsPage({ currentUser, onUpdateAccountSettings, onAccountUp
     }
 
     const reader = new FileReader()
-    reader.onload = () => {
+    reader.onload = async () => {
       const dataUrl = String(reader.result ?? '')
       if (!isDataImage(dataUrl)) {
         setAvatarError('Не удалось прочитать изображение.')
         return
       }
 
-      setAvatarDataUrl(dataUrl)
-      setAvatarError('')
-      setAvatarMessage('Аватар обновлен.')
-      persistProfileSettings({ avatar: dataUrl })
+      try {
+        await onUpdateAccountSettings({ avatarDataUrl: dataUrl })
+        onAccountUpdated({ ...currentUser, avatarDataUrl: dataUrl })
+        setAvatarDataUrl(dataUrl)
+        setAvatarError('')
+        setAvatarMessage('Аватар обновлен.')
+      } catch (err) {
+        setAvatarError(err instanceof Error ? err.message : 'Не удалось сохранить аватар.')
+      }
     }
     reader.onerror = () => setAvatarError('Не удалось загрузить изображение.')
     reader.readAsDataURL(file)

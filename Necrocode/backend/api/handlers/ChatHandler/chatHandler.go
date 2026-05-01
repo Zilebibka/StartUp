@@ -1,11 +1,17 @@
 package chathandler
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -68,12 +74,20 @@ type AttachmentPayload struct {
 }
 
 type ChatSummary struct {
+	ChatID        string `json:"chatId"`
 	Login         string `json:"login"`
 	DisplayName   string `json:"displayName"`
 	AvatarDataURL string `json:"avatarDataUrl"`
 	LastText      string `json:"lastText"`
 	LastSentAt    string `json:"lastSentAt"`
 	LastFrom      string `json:"lastFrom"`
+}
+
+type ChatResolveResponse struct {
+	ChatID        string `json:"chatId"`
+	Login         string `json:"login"`
+	DisplayName   string `json:"displayName"`
+	AvatarDataURL string `json:"avatarDataUrl"`
 }
 
 type ChatHistoryMessage struct {
@@ -108,6 +122,78 @@ type UploadAttachmentResponse struct {
 
 func NewHub() *Hub {
 	return &Hub{clients: make(map[string]*Client)}
+}
+
+func chatIDSecret() ([]byte, error) {
+	secret := strings.TrimSpace(os.Getenv("JWT_SECRET"))
+	if secret == "" {
+		return nil, errors.New("JWT_SECRET is required")
+	}
+	return []byte(secret), nil
+}
+
+func normalizeChatUsers(a, b int64) (int64, int64) {
+	if a > b {
+		return b, a
+	}
+	return a, b
+}
+
+func makeChatID(userA, userB int64) (string, error) {
+	secret, err := chatIDSecret()
+	if err != nil {
+		return "", err
+	}
+
+	a, b := normalizeChatUsers(userA, userB)
+	data := fmt.Sprintf("%d:%d", a, b)
+	mac := hmac.New(sha256.New, secret)
+	_, _ = mac.Write([]byte(data))
+	signature := hex.EncodeToString(mac.Sum(nil))
+	encoded := base64.RawURLEncoding.EncodeToString([]byte(data + "." + signature))
+	return encoded, nil
+}
+
+func parseChatID(chatID string) (int64, int64, error) {
+	secret, err := chatIDSecret()
+	if err != nil {
+		return 0, 0, err
+	}
+
+	decodedBytes, err := base64.RawURLEncoding.DecodeString(chatID)
+	if err != nil {
+		return 0, 0, errors.New("invalid chat id")
+	}
+
+	parts := strings.SplitN(string(decodedBytes), ".", 2)
+	if len(parts) != 2 {
+		return 0, 0, errors.New("invalid chat id")
+	}
+
+	data := parts[0]
+	signature := parts[1]
+	mac := hmac.New(sha256.New, secret)
+	_, _ = mac.Write([]byte(data))
+	expected := hex.EncodeToString(mac.Sum(nil))
+	if !hmac.Equal([]byte(signature), []byte(expected)) {
+		return 0, 0, errors.New("invalid chat id")
+	}
+
+	ids := strings.SplitN(data, ":", 2)
+	if len(ids) != 2 {
+		return 0, 0, errors.New("invalid chat id")
+	}
+
+	a, err := strconv.ParseInt(ids[0], 10, 64)
+	if err != nil {
+		return 0, 0, errors.New("invalid chat id")
+	}
+	b, err := strconv.ParseInt(ids[1], 10, 64)
+	if err != nil {
+		return 0, 0, errors.New("invalid chat id")
+	}
+
+	return a, b, nil
 }
 
 func (h *Hub) Register(client *Client) {
@@ -367,10 +453,11 @@ func (h Handler) ListChats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	const query = `
-SELECT DISTINCT ON (other.login)
-	other.login,
-	other.display_name,
-	other.avatar_data_url,
+	SELECT DISTINCT ON (other.login)
+		other.id,
+		other.login,
+		other.display_name,
+		other.avatar_data_url,
 	CASE
 		WHEN m.deleted_at IS NOT NULL THEN 'Сообщение удалено'
 		WHEN m.body <> '' THEN m.body
@@ -402,11 +489,16 @@ ORDER BY other.login, m.sent_at DESC;
 	items := make([]ChatSummary, 0)
 	for rows.Next() {
 		var item ChatSummary
+		var otherID int64
 		var sentAt time.Time
-		if err := rows.Scan(&item.Login, &item.DisplayName, &item.AvatarDataURL, &item.LastText, &sentAt, &item.LastFrom); err != nil {
+		if err := rows.Scan(&otherID, &item.Login, &item.DisplayName, &item.AvatarDataURL, &item.LastText, &sentAt, &item.LastFrom); err != nil {
 			continue
 		}
 		item.LastSentAt = sentAt.UTC().Format(time.RFC3339)
+		chatID, err := makeChatID(userID, otherID)
+		if err == nil {
+			item.ChatID = chatID
+		}
 		items = append(items, item)
 	}
 
@@ -439,6 +531,163 @@ func (h Handler) GetChatHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	items, err := h.loadHistoryByUsers(userID, otherID)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "failed to load history"})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"messages": items})
+}
+
+func (h Handler) GetChatByID(w http.ResponseWriter, r *http.Request) {
+	userID, _ := r.Context().Value(middlewares.ContextUserIDKey).(int64)
+	if userID == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	chatID := chi.URLParam(r, "chatId")
+	if chatID == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "chatId is required"})
+		return
+	}
+
+	a, b, err := parseChatID(chatID)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid chat id"})
+		return
+	}
+	if userID != a && userID != b {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "forbidden"})
+		return
+	}
+
+	otherID := a
+	if otherID == userID {
+		otherID = b
+	}
+
+	var user ChatResolveResponse
+	if err := h.DB.QueryRow(
+		`SELECT login, display_name, COALESCE(avatar_data_url, '') FROM users WHERE id = $1`,
+		otherID,
+	).Scan(&user.Login, &user.DisplayName, &user.AvatarDataURL); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "user not found"})
+		return
+	}
+	user.ChatID = chatID
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(user)
+}
+
+func (h Handler) ResolveChat(w http.ResponseWriter, r *http.Request) {
+	userID, _ := r.Context().Value(middlewares.ContextUserIDKey).(int64)
+	if userID == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	var payload struct {
+		Login string `json:"login"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || strings.TrimSpace(payload.Login) == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "login is required"})
+		return
+	}
+
+	var otherID int64
+	var resp ChatResolveResponse
+	if err := h.DB.QueryRow(
+		`SELECT id, login, display_name, COALESCE(avatar_data_url, '') FROM users WHERE login = $1`,
+		payload.Login,
+	).Scan(&otherID, &resp.Login, &resp.DisplayName, &resp.AvatarDataURL); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "user not found"})
+		return
+	}
+
+	chatID, err := makeChatID(userID, otherID)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "failed to resolve chat"})
+		return
+	}
+	resp.ChatID = chatID
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+func (h Handler) GetChatHistoryByID(w http.ResponseWriter, r *http.Request) {
+	userID, _ := r.Context().Value(middlewares.ContextUserIDKey).(int64)
+	if userID == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	chatID := chi.URLParam(r, "chatId")
+	if chatID == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "chatId is required"})
+		return
+	}
+
+	a, b, err := parseChatID(chatID)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid chat id"})
+		return
+	}
+	if userID != a && userID != b {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "forbidden"})
+		return
+	}
+
+	otherID := a
+	if otherID == userID {
+		otherID = b
+	}
+
+	items, err := h.loadHistoryByUsers(userID, otherID)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "failed to load history"})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"messages": items})
+}
+
+func (h Handler) loadHistoryByUsers(userID int64, otherID int64) ([]ChatHistoryMessage, error) {
 	const historyQuery = `
 	SELECT m.id, sender.login, recipient.login, m.body, m.sent_at, m.edited_at, m.deleted_at,
 		a.id, a.kind, a.file_name, a.mime, a.size_bytes
@@ -454,10 +703,7 @@ LIMIT 500;
 
 	rows, err := h.DB.Query(historyQuery, userID, otherID)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "failed to load history"})
-		return
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -513,8 +759,7 @@ LIMIT 500;
 		items = append(items, item)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{"messages": items})
+	return items, rows.Err()
 }
 
 func (h Handler) EditMessage(w http.ResponseWriter, r *http.Request) {

@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { motion } from 'framer-motion'
 import { Image, Mic, Paperclip, Search, SendHorizontal } from 'lucide-react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 interface ChatPageProps {
   apiBase: string
   accessToken: string | null
   currentLogin: string
   onIncomingMessage: (fromLogin: string) => void
+  onActiveChatChange?: (login: string) => void
 }
 
 type ChatUser = {
+  chatId?: string
   login: string
   displayName?: string
   avatarDataUrl?: string
@@ -239,7 +241,8 @@ const VoicePlayer = ({ src, variant }: VoicePlayerProps) => {
   )
 }
 
-export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage }: ChatPageProps) {
+export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage, onActiveChatChange }: ChatPageProps) {
+  const [activeChatId, setActiveChatId] = useState<string | null>(null)
   const [activeLogin, setActiveLogin] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<ChatUser[]>([])
@@ -252,6 +255,8 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; message: ChatMessage } | null>(null)
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null)
   const [editDraft, setEditDraft] = useState('')
+  const [editRows, setEditRows] = useState(2)
+  const [hiddenMessageIdsByLogin, setHiddenMessageIdsByLogin] = useState<Record<string, Set<number>>>({})
   const wsRef = useRef<WebSocket | null>(null)
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -259,11 +264,23 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
   const recorderRef = useRef<MediaRecorder | null>(null)
   const recorderStreamRef = useRef<MediaStream | null>(null)
   const location = useLocation()
+  const navigate = useNavigate()
+
+  const chatIdFromPath = useMemo(() => {
+    if (!location.pathname.startsWith('/chat/')) return ''
+    const raw = location.pathname.split('/')[2] ?? ''
+    return decodeURIComponent(raw)
+  }, [location.pathname])
 
   const activeMessages = useMemo(() => {
     if (!activeLogin) return []
-    return messagesByLogin[activeLogin] ?? []
-  }, [activeLogin, messagesByLogin])
+    const hidden = hiddenMessageIdsByLogin[activeLogin]
+    const list = messagesByLogin[activeLogin] ?? []
+    if (!hidden || hidden.size === 0) return list
+    return list.filter((message) => !hidden.has(message.id))
+  }, [activeLogin, hiddenMessageIdsByLogin, messagesByLogin])
+
+  const clampEditRows = (value: number) => Math.min(6, Math.max(2, value))
 
   const maxFileBytes = 5 * 1024 * 1024
   const maxImageBytes = 2 * 1024 * 1024
@@ -297,6 +314,53 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
   const resolveChatLogin = (from?: string, to?: string) => {
     if (!from || !to) return null
     return from === currentLogin ? to : from
+  }
+
+  const resolveChatIdByLogin = async (login: string) => {
+    if (!accessToken) return null
+    try {
+      const res = await fetch(`${apiBase}/chats/resolve`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({ login })
+      })
+      if (!res.ok) return null
+      const data = (await res.json()) as ChatUser
+      if (!data.chatId) return null
+      return data
+    } catch {
+      return null
+    }
+  }
+
+  const openChatByLogin = async (user: ChatUser) => {
+    if (!user.login || !accessToken || user.login === currentLogin) return
+    const resolved = await resolveChatIdByLogin(user.login)
+    const chatId = resolved?.chatId
+    if (!chatId) return
+
+    const mergedUser: ChatUser = {
+      login: resolved?.login ?? user.login,
+      displayName: resolved?.displayName ?? user.displayName,
+      avatarDataUrl: resolved?.avatarDataUrl ?? user.avatarDataUrl,
+      chatId
+    }
+
+    setChatUsers((prev) => {
+      const existing = prev.find((entry) => entry.chatId === chatId || entry.login === mergedUser.login)
+      if (existing) {
+        return prev.map((entry) => (entry.login === mergedUser.login ? { ...entry, ...mergedUser } : entry))
+      }
+      return [mergedUser, ...prev]
+    })
+
+    setActiveChatId(chatId)
+    setActiveLogin(mergedUser.login)
+    navigate(`/chat/${encodeURIComponent(chatId)}`, { replace: true })
   }
 
   const isMessageSelected = (message: ChatMessage) => message.id > 0 && selectedMessageIds.has(message.id)
@@ -494,6 +558,40 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
   }, [accessToken, apiBase, onIncomingMessage])
 
   useEffect(() => {
+    if (!accessToken || !chatIdFromPath) return
+
+    let isActive = true
+
+    const loadChatById = async () => {
+      try {
+        const res = await fetch(`${apiBase}/chats/id/${encodeURIComponent(chatIdFromPath)}`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          credentials: 'include'
+        })
+        if (!res.ok) return
+        const data = (await res.json()) as ChatUser
+        if (!isActive || !data.login) return
+        setChatUsers((prev) => {
+          const existing = prev.find((entry) => entry.chatId === chatIdFromPath || entry.login === data.login)
+          const merged = { ...existing, ...data, chatId: chatIdFromPath }
+          if (!existing) return [merged, ...prev]
+          return prev.map((entry) => (entry.login === merged.login ? merged : entry))
+        })
+        setActiveChatId(chatIdFromPath)
+        setActiveLogin(data.login)
+      } catch {
+        // ignore
+      }
+    }
+
+    void loadChatById()
+
+    return () => {
+      isActive = false
+    }
+  }, [accessToken, apiBase, chatIdFromPath])
+
+  useEffect(() => {
     if (!accessToken) return
 
     let isActive = true
@@ -507,6 +605,7 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
         if (!res.ok) return
         const data = (await res.json()) as {
           chats?: Array<{
+            chatId?: string
             login: string
             displayName?: string
             avatarDataUrl?: string
@@ -533,6 +632,7 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
             : undefined
 
           return {
+            chatId: item.chatId,
             login: item.login,
             displayName: item.displayName,
             avatarDataUrl: item.avatarDataUrl,
@@ -563,13 +663,13 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
   }, [accessToken, apiBase, currentLogin])
 
   useEffect(() => {
-    if (!accessToken || !activeLogin) return
+    if (!accessToken || !activeLogin || !activeChatId) return
 
     let isActive = true
 
     const loadHistory = async () => {
       try {
-        const res = await fetch(`${apiBase}/chats/${encodeURIComponent(activeLogin)}`, {
+        const res = await fetch(`${apiBase}/chats/id/${encodeURIComponent(activeChatId)}/history`, {
           headers: { Authorization: `Bearer ${accessToken}` },
           credentials: 'include'
         })
@@ -620,7 +720,7 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
     return () => {
       isActive = false
     }
-  }, [accessToken, activeLogin, apiBase, currentLogin])
+  }, [accessToken, activeLogin, activeChatId, apiBase, currentLogin])
 
   useEffect(() => {
     clearSelection()
@@ -628,6 +728,11 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
     setEditingMessageId(null)
     setEditDraft('')
   }, [activeLogin])
+
+  useEffect(() => {
+    if (!onActiveChatChange) return
+    onActiveChatChange(activeLogin ?? '')
+  }, [activeLogin, onActiveChatChange])
 
   useEffect(() => {
     if (!contextMenu) return
@@ -645,29 +750,29 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     const login = params.get('user')
-    if (!login || login === currentLogin) return
+    if (!login || login === currentLogin || !accessToken) return
 
     const openFromQuery = async () => {
       try {
         const res = await fetch(`${apiBase}/users/search?q=${encodeURIComponent(login)}`, { credentials: 'include' })
         if (!res.ok) {
-          openChat({ login })
+          void openChatByLogin({ login })
           return
         }
         const data = (await res.json()) as { users?: ChatUser[] }
         const found = data.users?.find((u) => u.login === login)
         if (found) {
-          openChat(found)
+          void openChatByLogin(found)
           return
         }
-        openChat({ login })
+        void openChatByLogin({ login })
       } catch {
-        openChat({ login })
+        void openChatByLogin({ login })
       }
     }
 
     void openFromQuery()
-  }, [apiBase, currentLogin, location.search])
+  }, [accessToken, apiBase, currentLogin, location.search])
 
   useEffect(() => {
     const container = messagesContainerRef.current
@@ -755,37 +860,7 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
       }
       if (!data.message || !data.message.attachment) return
 
-      const time = data.message.sentAt ? new Date(data.message.sentAt) : new Date()
-      const formatted = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      const newMessage: ChatMessage = {
-        id: data.message.id || time.getTime(),
-        type: 'outgoing',
-        text: data.message.text ?? '',
-        time: formatted,
-        from: currentLogin,
-        to: activeLogin,
-        attachment: data.message.attachment,
-        editedAt: data.message.editedAt,
-        deletedAt: data.message.deletedAt
-      }
-
-      setMessagesByLogin((prev) => {
-        const next = { ...prev }
-        const list = next[activeLogin] ? [...next[activeLogin]] : []
-        list.push(newMessage)
-        next[activeLogin] = list
-        return next
-      })
-
-      setChatUsers((prev) => {
-        const existing = prev.find((user) => user.login === activeLogin)
-        if (!existing) {
-          return [{ login: activeLogin, lastMessage: newMessage }, ...prev]
-        }
-        return prev.map((user) => (
-          user.login === activeLogin ? { ...user, lastMessage: newMessage } : user
-        ))
-      })
+      // Attachment message will be delivered through websocket; avoid duplicating it here.
     } catch {
       setUploadError('Не удалось отправить файл. Попробуйте еще раз.')
     }
@@ -840,12 +915,7 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
   }
 
   const openChat = (user: ChatUser) => {
-    if (!user.login) return
-    setActiveLogin(user.login)
-    setChatUsers((prev) => {
-      if (prev.some((entry) => entry.login === user.login)) return prev
-      return [user, ...prev]
-    })
+    void openChatByLogin(user)
   }
 
   const handleSend = () => {
@@ -917,12 +987,14 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
     if (!canEditMessage(message)) return
     setEditingMessageId(message.id)
     setEditDraft(message.text)
+    setEditRows(clampEditRows(message.text.split('\n').length))
     setContextMenu(null)
   }
 
   const cancelEdit = () => {
     setEditingMessageId(null)
     setEditDraft('')
+    setEditRows(2)
   }
 
   const saveEdit = async () => {
@@ -994,6 +1066,34 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
     }
   }
 
+  const deleteForMe = (ids: number[]) => {
+    if (!activeLogin || ids.length === 0) return
+    setHiddenMessageIdsByLogin((prev) => {
+      const next = { ...prev }
+      const hidden = new Set(next[activeLogin] ?? [])
+      ids.forEach((id) => hidden.add(id))
+      next[activeLogin] = hidden
+      return next
+    })
+    clearSelection()
+    setContextMenu(null)
+    if (editingMessageId && ids.includes(editingMessageId)) {
+      cancelEdit()
+    }
+  }
+
+  const handleDownloadImage = (message: ChatMessage) => {
+    if (!message.attachment || message.attachment.kind !== 'image') return
+    const url = buildAttachmentUrl(message.attachment.id)
+    if (!url) return
+    const link = document.createElement('a')
+    link.href = url
+    link.download = message.attachment.fileName
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+  }
+
   return (
     <motion.section
       key="chat"
@@ -1002,8 +1102,8 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
       exit={{ opacity: 0, y: -8 }}
       className="mx-auto max-w-6xl"
     >
-      <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-4 sm:gap-6 lg:min-h-[72vh]">
-        <aside className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm lg:min-h-[72vh]">
+      <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-4 sm:gap-6 h-[72vh] max-h-[72vh]">
+        <aside className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm h-[72vh] max-h-[72vh] overflow-hidden">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-extrabold text-gray-900">Чаты</h2>
             <span className="text-xs font-bold text-gray-500">{chatUsers.length} диалогов</span>
@@ -1068,28 +1168,37 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
               {chatUsers.map((user) => {
                 const list = messagesByLogin[user.login] ?? []
                 const last = user.lastMessage ?? list[list.length - 1]
+                const isActive = user.chatId ? user.chatId === activeChatId : user.login === activeLogin
                 return (
                   <button
-                    key={user.login}
+                    key={user.chatId ?? user.login}
                     type="button"
-                    onClick={() => setActiveLogin(user.login)}
+                    onClick={() => {
+                      if (user.chatId) {
+                        setActiveChatId(user.chatId)
+                        setActiveLogin(user.login)
+                        navigate(`/chat/${encodeURIComponent(user.chatId)}`)
+                        return
+                      }
+                      void openChatByLogin(user)
+                    }}
                     className={`w-full rounded-2xl border p-3 text-left transition-all ${
-                      activeLogin === user.login
+                      isActive
                         ? 'border-black bg-gray-900 text-white shadow-md'
                         : 'border-gray-200 bg-white hover:border-gray-300'
                     }`}
                   >
                     <div className="flex items-start justify-between">
                       <div className="min-w-0">
-                        <p className={`text-sm font-extrabold truncate ${activeLogin === user.login ? 'text-white' : 'text-gray-900'}`}>
+                        <p className={`text-sm font-extrabold truncate ${isActive ? 'text-white' : 'text-gray-900'}`}>
                           {user.displayName || user.login}
                         </p>
-                        <p className={`mt-1 text-xs truncate ${activeLogin === user.login ? 'text-white/70' : 'text-gray-500'}`}>
+                        <p className={`mt-1 text-xs truncate ${isActive ? 'text-white/70' : 'text-gray-500'}`}>
                           {getMessagePreview(last)}
                         </p>
                       </div>
                       <div className="ml-3 flex flex-col items-end gap-1">
-                        <span className={`text-[10px] font-bold ${activeLogin === user.login ? 'text-white/70' : 'text-gray-400'}`}>
+                        <span className={`text-[10px] font-bold ${isActive ? 'text-white/70' : 'text-gray-400'}`}>
                           {last?.time ?? ''}
                         </span>
                       </div>
@@ -1101,7 +1210,7 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
           )}
         </aside>
 
-        <div className="rounded-3xl border border-gray-200 bg-white shadow-sm flex flex-col overflow-hidden min-h-[62vh] lg:min-h-[72vh] min-h-0">
+        <div className="rounded-3xl border border-gray-200 bg-white shadow-sm flex flex-col overflow-hidden h-[72vh] max-h-[72vh]">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-4">
             <div className="min-w-0">
               <h3 className="text-lg font-extrabold text-gray-900 truncate">
@@ -1158,8 +1267,8 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
                             if (e.key === 'Escape') cancelEdit()
                             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) saveEdit()
                           }}
-                          rows={3}
-                          className="w-full rounded-lg border border-gray-200 bg-white/90 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-black"
+                          rows={editRows}
+                          className="w-full resize-none rounded-lg border border-gray-200 bg-white/90 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-black"
                         />
                         <div className="flex items-center gap-2">
                           <button
@@ -1189,13 +1298,6 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
                                   alt={message.attachment.fileName}
                                   className="max-h-64 w-full rounded-xl object-cover"
                                 />
-                                <a
-                                  href={buildAttachmentUrl(message.attachment.id)}
-                                  className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold text-gray-700 hover:border-gray-300"
-                                  download={message.attachment.fileName}
-                                >
-                                  Скачать фото
-                                </a>
                               </div>
                             )}
                             {message.attachment.kind === 'voice' && (
@@ -1242,13 +1344,36 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
               className="fixed z-50 min-w-[180px] rounded-xl border border-gray-200 bg-white shadow-lg p-2 text-sm"
               style={{ left: contextMenu.x, top: contextMenu.y }}
             >
+              {contextMenu.message.attachment?.kind === 'image' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleDownloadImage(contextMenu.message)
+                    setContextMenu(null)
+                  }}
+                  className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-100"
+                >
+                  Скачать фото
+                </button>
+              )}
               {selectedMessageIds.size > 0 && (
                 <button
                   type="button"
                   onClick={deleteSelectedMessages}
                   className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-red-600 hover:bg-red-50"
                 >
-                  Удалить выбранные ({selectedMessageIds.size})
+                  Удалить у всех ({selectedMessageIds.size})
+                </button>
+              )}
+              {selectedMessageIds.size > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    deleteForMe(Array.from(selectedMessageIds))
+                  }}
+                  className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-gray-600 hover:bg-gray-100"
+                >
+                  Удалить у меня ({selectedMessageIds.size})
                 </button>
               )}
               {selectedMessageIds.size <= 1 && canEditMessage(contextMenu.message) && (
@@ -1266,7 +1391,16 @@ export function ChatPage({ apiBase, accessToken, currentLogin, onIncomingMessage
                   onClick={deleteSelectedMessages}
                   className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-red-600 hover:bg-red-50"
                 >
-                  Удалить
+                  Удалить у всех
+                </button>
+              )}
+              {selectedMessageIds.size === 0 && (
+                <button
+                  type="button"
+                  onClick={() => deleteForMe([contextMenu.message.id])}
+                  className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-gray-600 hover:bg-gray-100"
+                >
+                  Удалить у меня
                 </button>
               )}
               {selectedMessageIds.size > 0 && (

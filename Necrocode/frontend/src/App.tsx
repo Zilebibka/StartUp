@@ -43,6 +43,19 @@ type DarkThemeVariant = 'mint' | 'sage' | 'teal'
   | 'lavender'
   | 'rose'
 
+type OwnerInfo = {
+  displayName?: string
+  avatarDataUrl?: string
+}
+
+type ChatWsPayload = {
+  type: 'handshake' | 'message' | 'edit' | 'delete' | 'error'
+  from?: string
+  to?: string
+  text?: string
+  attachment?: { kind?: string }
+}
+
 const toDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
@@ -89,7 +102,7 @@ function App() {
     if (pathname === '/sell') return 'sell'
     if (pathname === '/help') return 'help'
     if (pathname === '/about') return 'about'
-    if (pathname === '/chat') return 'chat'
+    if (pathname === '/chat' || pathname.startsWith('/chat/')) return 'chat'
     if (pathname === '/login') return 'login'
     if (pathname === '/register') return 'register'
     if (pathname === '/profile' || pathname.startsWith('/profile/')) return 'profile'
@@ -142,6 +155,37 @@ function App() {
   const [notifications, setNotifications] = useState<AppNotification[]>([])
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   const notificationAudioRef = useRef<HTMLAudioElement | null>(null)
+  const notificationsWsRef = useRef<WebSocket | null>(null)
+  const fetchedOwnerLoginsRef = useRef<Set<string>>(new Set())
+  const [ownerInfoByLogin, setOwnerInfoByLogin] = useState<Record<string, OwnerInfo>>({})
+  const [activeChatLogin, setActiveChatLogin] = useState('')
+  const currentPageRef = useRef<Page>('home')
+  const activeChatLoginRef = useRef('')
+  const currentUserLoginRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    currentPageRef.current = currentPage
+  }, [currentPage])
+
+  useEffect(() => {
+    activeChatLoginRef.current = activeChatLogin
+  }, [activeChatLogin])
+
+  useEffect(() => {
+    currentUserLoginRef.current = currentUser?.login ?? null
+  }, [currentUser?.login])
+
+  const playNotificationSound = () => {
+    try {
+      const audio = notificationAudioRef.current
+      if (!audio) return
+      audio.currentTime = 0
+      const playback = audio.play()
+      if (playback) {
+        void playback.catch(() => {})
+      }
+    } catch {}
+  }
 
   const addNotification = (message: string, type: 'success' | 'error' | 'info') => {
     const newNotif: AppNotification = {
@@ -152,17 +196,8 @@ function App() {
       read: false
     }
     setNotifications(prev => [newNotif, ...prev])
-    
-    // Play sound on new notification
-    try {
-      const audio = notificationAudioRef.current
-      if (!audio) return
-      audio.currentTime = 0
-      const playback = audio.play()
-      if (playback) {
-        void playback.catch(() => {})
-      }
-    } catch {}
+
+    playNotificationSound()
   }
 
   const markNotificationAsRead = (id: number) => {
@@ -298,6 +333,128 @@ function App() {
       notificationAudioRef.current = null
     }
   }, [])
+
+  useEffect(() => {
+    if (!accessToken) return
+
+    const apiUrl = new URL(API_BASE, window.location.origin)
+    const wsProtocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:'
+    const wsUrl = `${wsProtocol}//${apiUrl.host}${apiUrl.pathname.replace(/\/$/, '')}/ws/chat?token=${encodeURIComponent(accessToken)}`
+
+    let reconnectTimer: number | undefined
+    let reconnectAttempts = 0
+    let shouldReconnect = true
+
+    const scheduleReconnect = () => {
+      if (!shouldReconnect) return
+      const baseDelay = 1000
+      const maxDelay = 10000
+      const delay = Math.min(maxDelay, baseDelay * Math.pow(2, reconnectAttempts))
+      reconnectAttempts += 1
+      reconnectTimer = window.setTimeout(connect, delay)
+    }
+
+    const connect = () => {
+      if (!shouldReconnect) return
+      const ws = new WebSocket(wsUrl)
+      notificationsWsRef.current = ws
+
+      ws.onopen = () => {
+        reconnectAttempts = 0
+      }
+
+      ws.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data) as ChatWsPayload
+          if (payload.type !== 'message' || !payload.from || !payload.to) return
+          if (payload.from === currentUserLoginRef.current) return
+          const label = payload.attachment?.kind ? 'сообщение с вложением' : 'сообщение'
+          const isChatPage = currentPageRef.current === 'chat'
+          const isActiveChat = isChatPage && activeChatLoginRef.current === payload.from
+          if (isActiveChat) {
+            playNotificationSound()
+          } else {
+            addNotification(`Новое ${label} от ${payload.from}`, 'info')
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      ws.onclose = () => {
+        if (notificationsWsRef.current === ws) {
+          notificationsWsRef.current = null
+        }
+        scheduleReconnect()
+      }
+
+      ws.onerror = () => {
+        try {
+          ws.close()
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    connect()
+
+    return () => {
+      shouldReconnect = false
+      if (reconnectTimer) window.clearTimeout(reconnectTimer)
+      if (notificationsWsRef.current) notificationsWsRef.current.close()
+      notificationsWsRef.current = null
+    }
+  }, [accessToken])
+
+  useEffect(() => {
+    const uniqueLogins = Array.from(new Set(listings.map((item) => item.ownerLogin).filter(Boolean)))
+    const missing = uniqueLogins.filter((login) => !fetchedOwnerLoginsRef.current.has(login))
+    if (missing.length === 0) return
+
+    let isActive = true
+    const controller = new AbortController()
+
+    const loadOwners = async () => {
+      const results = await Promise.all(
+        missing.map(async (login) => {
+          try {
+            const res = await fetch(`${API_BASE}/users/search?q=${encodeURIComponent(login)}`, {
+              credentials: 'include',
+              signal: controller.signal
+            })
+            if (!res.ok) return [login, null] as const
+            const data = (await res.json()) as { users?: Array<{ login: string; displayName?: string; avatarDataUrl?: string }> }
+            const user = data.users?.find((entry) => entry.login === login)
+            if (!user) return [login, null] as const
+            return [login, { displayName: user.displayName, avatarDataUrl: user.avatarDataUrl }] as const
+          } catch {
+            return [login, null] as const
+          }
+        })
+      )
+
+      if (!isActive) return
+
+      setOwnerInfoByLogin((prev) => {
+        const next = { ...prev }
+        results.forEach(([login, info]) => {
+          fetchedOwnerLoginsRef.current.add(login)
+          if (info) {
+            next[login] = info
+          }
+        })
+        return next
+      })
+    }
+
+    void loadOwners()
+
+    return () => {
+      isActive = false
+      controller.abort()
+    }
+  }, [listings])
 
   useEffect(() => {
     const loadListings = async () => {
@@ -1063,6 +1220,7 @@ function App() {
     email?: string
     newPassword?: string
     displayName?: string
+    avatarDataUrl?: string
   }) => {
     const res = await fetchWithAuth('/me/settings', {
       method: 'PUT',
@@ -1102,8 +1260,12 @@ function App() {
             </nav>
           </div>
 
-          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2 sm:flex-none sm:gap-4 text-gray-600">
-            <div className="flex items-center relative h-9 justify-end">
+          <motion.div
+            layout
+            transition={{ layout: { duration: 0.25, ease: 'easeOut' } }}
+            className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2 sm:flex-none sm:gap-4 text-gray-600"
+          >
+            <motion.div layout transition={{ layout: { duration: 0.25, ease: 'easeOut' } }} className="flex items-center relative h-9 justify-end">
               <AnimatePresence mode="wait">
                 {isSearchOpen && (
                   <motion.input
@@ -1123,12 +1285,18 @@ function App() {
                 <button onClick={() => setIsSearchOpen((prev) => !prev)} className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-gray-100 hover:text-black transition-colors relative z-10" title="Поиск">
                   <Search className="w-5 h-5" />
                 </button>
-            </div>
+            </motion.div>
 
-            <div className="flex min-w-0 items-center relative min-h-9">
+            <motion.div layout transition={{ layout: { duration: 0.25, ease: 'easeOut' } }} className="flex min-w-0 items-center relative min-h-9">
               <AnimatePresence mode="wait">
                 {isWalletOpen && (
-                  <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 'auto', opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="flex min-w-0 flex-wrap items-center justify-end pr-1 sm:pr-3 overflow-hidden gap-1.5 sm:gap-3 max-w-[calc(100vw-5rem)] sm:max-w-none">
+                  <motion.div
+                    initial={{ opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 10 }}
+                    transition={{ duration: 0.2, ease: 'easeOut' }}
+                    className="flex min-w-0 items-center justify-end pr-1 sm:pr-3 overflow-hidden gap-1.5 sm:gap-3 max-w-[calc(100vw-5rem)] sm:max-w-none flex-nowrap"
+                  >
                     <span className="max-w-24 truncate font-bold text-sm text-gray-900">{balance.toLocaleString('ru-RU')} ₽</span>
                     <button aria-label="Пополнить баланс" onClick={() => { navigate('/topup'); setIsWalletOpen(false) }} className="inline-flex min-h-8 items-center gap-1 bg-black text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap">
                       <Plus className="w-3 h-3" /> <span className="hidden sm:inline">Пополнить</span>
@@ -1142,7 +1310,7 @@ function App() {
               <button onClick={() => setIsWalletOpen((prev) => !prev)} className="h-9 w-9 shrink-0 inline-flex items-center justify-center rounded-full hover:bg-gray-100 hover:text-black transition-colors" title="Кошелек">
                 <Wallet className="w-5 h-5" />
               </button>
-            </div>
+            </motion.div>
 
             <button onClick={() => navigate('/cart')} className="relative h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-gray-100 hover:text-black transition-colors" title="Корзина">
               <ShoppingCart className="w-5 h-5" />
@@ -1244,11 +1412,16 @@ function App() {
             {currentUser ? (
               <>
               <div className="hidden sm:flex items-center gap-2 md:gap-3 ml-1 md:ml-2 border-l pl-3 md:pl-4 border-gray-200">
-                <button 
+                <button
                   onClick={() => navigate(ownProfilePath(currentUser))}
-                  className="max-w-36 truncate bg-black text-white px-4 py-1.5 rounded-full text-sm font-medium hover:bg-gray-800 transition-colors"
+                  className="h-9 w-9 rounded-full border border-gray-200 overflow-hidden bg-white text-xs font-bold text-gray-700 hover:border-gray-300"
+                  title={currentUser.login || 'Профиль'}
                 >
-                  {currentUser.login || 'User'}
+                  {currentUser.avatarDataUrl ? (
+                    <img src={currentUser.avatarDataUrl} alt={currentUser.login} className="h-full w-full object-cover" />
+                  ) : (
+                    (currentUser.login?.[0] || 'U').toUpperCase()
+                  )}
                 </button>
                 <button
                   onClick={() => navigate('/settings')}
@@ -1263,10 +1436,14 @@ function App() {
               </div>
               <button
                 onClick={() => navigate(ownProfilePath(currentUser))}
-                className="sm:hidden h-9 min-w-9 px-2 rounded-full bg-black text-white text-xs font-bold"
-                title="Профиль"
+                className="sm:hidden h-9 w-9 rounded-full border border-gray-200 overflow-hidden bg-white text-xs font-bold text-gray-700"
+                title={currentUser.login || 'Профиль'}
               >
-                {(currentUser.login?.[0] || 'U').toUpperCase()}
+                {currentUser.avatarDataUrl ? (
+                  <img src={currentUser.avatarDataUrl} alt={currentUser.login} className="h-full w-full object-cover" />
+                ) : (
+                  (currentUser.login?.[0] || 'U').toUpperCase()
+                )}
               </button>
               <button
                 onClick={() => navigate('/settings')}
@@ -1288,7 +1465,7 @@ function App() {
               </div>
               </>
             )}
-          </div>
+          </motion.div>
 
           <nav className="md:hidden grid w-full grid-cols-4 gap-1 border-t border-gray-100 pt-2 text-center text-xs font-semibold text-gray-700">
             <button onClick={handleSellOpen} className="min-h-9 rounded-lg px-1 hover:bg-gray-100 hover:text-black transition-colors">Продать</button>
@@ -1305,20 +1482,19 @@ function App() {
             <AnimatePresence mode="wait">
           {currentPage === 'home' && (
             <HomePage 
-              searchQuery={searchQuery}
               filteredListings={filteredListings}
-              listings={listings}
+              ownerInfoByLogin={ownerInfoByLogin}
               openListingPage={openListingPage}
               openUserProfile={(login) => {
                 void openUserProfile(login)
               }}
-              handleAddToCart={handleAddToCart}
             />
           )}
 
           {currentPage === 'catalog' && (
             <CatalogPage 
               listings={listings}
+              ownerInfoByLogin={ownerInfoByLogin}
               openListingPage={openListingPage}
               openUserProfile={(login) => {
                 void openUserProfile(login)
@@ -1329,6 +1505,7 @@ function App() {
           {currentPage === 'listing' && selectedListing && (
             <ListingPage 
               selectedListing={selectedListing}
+              ownerInfoByLogin={ownerInfoByLogin}
               handleAddToCart={handleAddToCart}
               navigateToHome={navigateToHome}
               apiBase={API_BASE}
@@ -1353,9 +1530,8 @@ function App() {
               apiBase={API_BASE}
               accessToken={accessToken}
               currentLogin={currentUser?.login ?? ''}
-              onIncomingMessage={(fromLogin) => {
-                addNotification(`Новое сообщение от ${fromLogin}`, 'info')
-              }}
+              onIncomingMessage={() => {}}
+              onActiveChatChange={setActiveChatLogin}
             />
           )}
 

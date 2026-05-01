@@ -5,13 +5,14 @@ import type { Listing } from '../types'
 
 interface ListingPageProps {
   selectedListing: Listing;
+  ownerInfoByLogin: Record<string, { displayName?: string; avatarDataUrl?: string }>
   handleAddToCart: (id: number) => void;
   navigateToHome: () => void;
   apiBase: string;
   openUserProfile: (login: string) => void;
 }
 
-export function ListingPage({ selectedListing, handleAddToCart, navigateToHome, apiBase, openUserProfile }: ListingPageProps) {
+export function ListingPage({ selectedListing, ownerInfoByLogin, handleAddToCart, navigateToHome, apiBase, openUserProfile }: ListingPageProps) {
   type SellerReview = {
     id: number
     text: string
@@ -229,7 +230,7 @@ export function ListingPage({ selectedListing, handleAddToCart, navigateToHome, 
                 onClick={() => openUserProfile(selectedListing.ownerLogin)}
                 className="truncate text-xs font-semibold text-blue-600 hover:text-blue-700 mt-1"
               >
-                Продавец: {selectedListing.ownerLogin}
+                Продавец: {ownerInfoByLogin[selectedListing.ownerLogin]?.displayName || selectedListing.ownerLogin}
               </button>
             </div>
           </div>
@@ -251,8 +252,12 @@ export function ListingPage({ selectedListing, handleAddToCart, navigateToHome, 
               
               <div className="flex flex-col gap-4 min-[460px]:flex-row min-[460px]:items-center min-[460px]:justify-between p-4 bg-gray-50 border border-gray-100 rounded-2xl min-h-[88px] panel-soft panel-outline">
                  <div className="flex min-w-0 items-center gap-3">
-                   <div className="h-10 w-10 rounded-full bg-white border-2 border-gray-200 flex items-center justify-center text-gray-900 font-bold shadow-sm">
-                     {selectedListing.ownerLogin.charAt(0).toUpperCase()}
+                   <div className="h-10 w-10 rounded-full bg-white border-2 border-gray-200 overflow-hidden flex items-center justify-center text-gray-900 font-bold shadow-sm">
+                     {ownerInfoByLogin[selectedListing.ownerLogin]?.avatarDataUrl ? (
+                       <img src={ownerInfoByLogin[selectedListing.ownerLogin]?.avatarDataUrl} alt={selectedListing.ownerLogin} className="h-full w-full object-cover" />
+                     ) : (
+                       selectedListing.ownerLogin.charAt(0).toUpperCase()
+                     )}
                    </div>
                    <div className="min-w-0">
                      <p className="text-xs text-gray-500 font-semibold mb-0.5">Владелец / Продавец</p>
@@ -260,7 +265,7 @@ export function ListingPage({ selectedListing, handleAddToCart, navigateToHome, 
                        onClick={() => openUserProfile(selectedListing.ownerLogin)}
                        className="max-w-full truncate text-sm font-extrabold text-gray-900 hover:text-blue-600 hover:underline transition-colors"
                      >
-                       {selectedListing.ownerLogin}
+                       {ownerInfoByLogin[selectedListing.ownerLogin]?.displayName || selectedListing.ownerLogin}
                      </button>
                    </div>
                  </div>

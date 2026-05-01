@@ -61,6 +61,9 @@ func NewRouter(db *sql.DB) http.Handler {
 		r.Group(func(r chi.Router) {
 			r.Use(middlewares.AuthMiddleware)
 			r.Get("/chats", chatHandler.ListChats)
+			r.Post("/chats/resolve", chatHandler.ResolveChat)
+			r.Get("/chats/id/{chatId}", chatHandler.GetChatByID)
+			r.Get("/chats/id/{chatId}/history", chatHandler.GetChatHistoryByID)
 			r.Get("/chats/{login}", chatHandler.GetChatHistory)
 			r.Post("/chats/{login}/attachments", chatHandler.UploadAttachment)
 			r.Patch("/chats/messages/{id}", chatHandler.EditMessage)

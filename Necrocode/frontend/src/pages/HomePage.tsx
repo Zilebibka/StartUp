@@ -2,15 +2,13 @@ import { motion } from "framer-motion"
 import type { Listing } from "../types"
 
 interface HomePageProps {
-  searchQuery: string;
   filteredListings: Listing[];
-  listings: Listing[];
+  ownerInfoByLogin: Record<string, { displayName?: string; avatarDataUrl?: string }>;
   openListingPage: (id: number) => void;
   openUserProfile: (login: string) => void;
-  handleAddToCart: (id: number) => void;
 }
 
-export function HomePage({ filteredListings, openListingPage, openUserProfile, handleAddToCart: _handleAddToCart }: HomePageProps) {
+export function HomePage({ filteredListings, ownerInfoByLogin, openListingPage, openUserProfile }: HomePageProps) {
   return (
     <motion.section 
       key="home" 
@@ -87,10 +85,16 @@ export function HomePage({ filteredListings, openListingPage, openUserProfile, h
                      }}
                      className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-gray-400 hover:text-black transition-colors"
                    >
-                     <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px] text-gray-600 border border-gray-200">
-                       {item.ownerLogin.charAt(0).toUpperCase()}
+                     <div className="w-5 h-5 rounded-full bg-white border border-gray-200 overflow-hidden flex items-center justify-center text-[10px] text-gray-500">
+                       {ownerInfoByLogin[item.ownerLogin]?.avatarDataUrl ? (
+                         <img src={ownerInfoByLogin[item.ownerLogin]?.avatarDataUrl} alt={item.ownerLogin} className="h-full w-full object-cover" />
+                       ) : (
+                         item.ownerLogin.charAt(0).toUpperCase()
+                       )}
                      </div>
-                     <span className="truncate">{item.ownerLogin}</span>
+                     <span className="truncate">
+                       {ownerInfoByLogin[item.ownerLogin]?.displayName || item.ownerLogin}
+                     </span>
                    </button>
                  </div>
               </div>

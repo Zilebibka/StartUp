@@ -310,19 +310,12 @@ export function ProfilePage({ currentUser, viewedUser, isOwnProfile = false, bal
       return;
     }
 
-    if (isOwnProfile) {
-      const savedSettings = localStorage.getItem("profileSettings_" + profileUser.login);
-      if (savedSettings) {
-        try {
-          const parsed = JSON.parse(savedSettings);
-          if (parsed.avatar) setAvatar(parsed.avatar);
-        } catch(e) {}
-      }
+    if (profileUser.avatarDataUrl) {
+      setAvatar(profileUser.avatarDataUrl);
     } else {
       setAvatar(EMOJI_AVATARS[0]);
     }
-
-  }, [profileUser, isOwnProfile]);
+  }, [profileUser?.login, profileUser?.avatarDataUrl]);
 
   const loadReviews = async (login: string) => {
     try {
